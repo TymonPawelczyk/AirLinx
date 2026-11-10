@@ -391,6 +391,14 @@
     '': ['Brak kodera H.264', 'ffmpeg nie ma ani NVENC, ani libx264, więc kopia ekranu nie zadziała.'],
     probing: ['Sprawdzam…', 'Wykrywam koder wideo w ffmpeg.'],
   };
+  // mirror.codec (auto | h264 | hevc) → opis; AppState.hevc_encoder: "hevc_nvenc" | "libx265" | "" (brak) | null (sprawdzam)
+  const CODEC_DESC = {
+    h264: 'H.264 działa na każdym telewizorze. To ustawienie domyślne.',
+    auto: 'H.265, gdy obsługują go telewizor i karta graficzna, w przeciwnym razie H.264. Przy tym samym obrazie H.265 potrzebuje mniejszej przepływności.',
+    hevc: 'H.265 zmniejsza przepływność przy tym samym obrazie, ale nie sprawdzono go na każdym telewizorze. Gdy telewizor go nie przyjmie, AirLinx wraca do H.264.',
+  };
+  const HEVC_ENC = { hevc_nvenc: 'NVENC', libx265: 'procesor (libx265)' };
+  const codecChoice = () => ['auto', 'hevc'].includes((S.mirror.options || {}).codec) ? S.mirror.options.codec : 'h264';
   const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
   const patchFor = (p, v) => p.split('.').reduceRight((acc, k) => ({ [k]: acc }), v);
   function renderSettings() {
@@ -414,8 +422,19 @@
     $('#proto-dot').dataset.s = mirrorActive() || S.media_protocol ? 'live' : 'busy';
     const enc = S.mirror.stats && S.mirror.stats.encoder;
     const det = ENCODERS[S.encoder == null ? 'probing' : S.encoder] || ENCODERS.probing;
-    $('#encoder-info').textContent = enc ? `${encoderLabel(enc)} (${enc})` : det[0];
-    $('#encoder-desc').textContent = det[1];
+    const codec = codecChoice(), hevc = S.hevc_encoder;
+    setRadio($('[data-group="codec"]'), codec);
+    let info = det[0], desc = det[1], cdesc = CODEC_DESC[codec];
+    if (codec !== 'h264') {
+      if (hevc === '') cdesc = 'Nie znaleziono kodera H.265 w ffmpeg, więc zostanie użyty H.264.';
+      else if (hevc) {
+        info = `H.265 · ${HEVC_ENC[hevc] || hevc}, ${codec === 'auto' ? 'jeśli telewizor go obsługuje' : 'wybierany automatycznie'}`;
+        if (hevc === 'libx265') desc = 'Nie znaleziono kodera NVENC dla H.265, więc obraz koduje procesor. To duże obciążenie komputera.';
+      }
+    }
+    $('#encoder-info').textContent = enc ? `${encoderLabel(enc)} (${enc})` : info;
+    $('#encoder-desc').textContent = desc;
+    $('#codec-desc').textContent = cdesc;
     $('#app-version').textContent = `AirLinx ${S.version || ''}`;
   }
 
@@ -685,6 +704,7 @@
       setRadio(g, v);
       if (g.dataset.group === 'profile' || g.dataset.group === 'profile-card') setOptions(PROFILES[v].opts);
       else if (g.dataset.group === 'proto') setSetting('protocol', v);
+      else if (g.dataset.group === 'codec') setOptions({ codec: v });
       else if (g.dataset.group === 'asrc') {
         const patch = { source: v };
         if (v === 'app' && !audioCfg().app && audioPick.list && audioPick.list.apps.length) {
