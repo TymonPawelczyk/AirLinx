@@ -119,6 +119,7 @@ class AppState:
     encoder: Optional[str] = None            # H.264 encoder for mirroring: "h264_nvenc" | "libx264" | "" (none found)
                                              # | None (not probed yet)
     wayland: bool = False                    # Wayland session: screen capture may be black (files still play)
+    hevc_encoder: Optional[str] = None       # H.265 encoder: "hevc_nvenc" | "libx265" | "" (none found) | None (not probed)
 
 
 class AirlinxError(Exception):
