@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirLinx Clock</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #202020; overflow: hidden; cursor: none; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #hint { position: fixed; bottom: 2vh; left: 0; right: 0; text-align: center; color: #888;
+          font: 2vh system-ui, sans-serif; cursor: default; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">Kliknij, aby przejść na pełny ekran (F11). Okno MUSI zajmować cały przechwytywany monitor, żeby TV odczytał pasek u góry.</div>
+<script src="/static/common.js"></script>
+<script>
+'use strict';
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const clock = new ClockSync();
+clock.sync(20).catch(() => {});
+clock.startAuto(15000);
+document.addEventListener('click', () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+});
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('hint').style.display = document.fullscreenElement ? 'none' : 'block';
+});
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(innerWidth * dpr);
+  cv.height = Math.round(innerHeight * dpr);
+}
+addEventListener('resize', resize); resize();
+let frames = 0, fpsT = performance.now(), fps = 0;
+function draw() {
+  const t = clock.now();
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = '#202020'; ctx.fillRect(0, 0, W, H);
+  bcDraw(ctx, W, H, t);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `bold ${Math.round(H * 0.16)}px monospace`;
+  ctx.fillText(fmtClock(t), W / 2, H * 0.36);
+  ctx.font = `${Math.round(H * 0.07)}px monospace`;
+  ctx.fillStyle = '#ffd34d';
+  ctx.fillText(String(Math.floor(t) % 100000).padStart(5, '0') + ' ms', W / 2, H * 0.52);
+  ctx.fillStyle = '#9ad';
+  ctx.font = `${Math.round(H * 0.03)}px monospace`;
+  ctx.fillText(`PC clock (czas serwera)  sync rtt=${clock.rtt === null ? '-' : clock.rtt.toFixed(1)}ms  ${fps} fps`, W / 2, H * 0.62);
+  frames++;
+  const n = performance.now();
+  if (n - fpsT > 1000) { fps = frames; frames = 0; fpsT = n; }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

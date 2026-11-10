@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+<title>AirLinx</title>
+<path fill="#0B0B0B" d="M5 0H19C21.76 0 24 2.24 24 5V19C24 21.76 21.76 24 19 24H5C2.24 24 0 21.76 0 19V5C0 2.24 2.24 0 5 0Z"/>
+<path fill="#F3F2EF" d="M3.75 6H6.25L9.25 12L6.25 18H3.75L6.75 12L3.75 6Z"/>
+<path fill="#F3F2EF" d="M20.25 6H17.75L14.75 12L17.75 18H20.25L17.25 12L20.25 6Z"/>
+<path fill="#3DF2A0" d="M10.5 12 12 9 13.5 12 12 15 10.5 12Z"/>
+</svg>

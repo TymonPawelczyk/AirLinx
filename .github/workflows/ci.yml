@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  unit:
+    name: Unit tests (offline) + coverage
+    # Ubuntu 22.04 matches the supported desktop (Zorin OS 17): Python 3.10, WebKit2 4.1
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-gi python3-venv python3-dev gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
+            ffmpeg xvfb x11-xserver-utils x11-utils pulseaudio-utils desktop-file-utils
+
+      - name: Python environment (system site packages for PyGObject)
+        run: |
+          /usr/bin/python3 -m venv --system-site-packages .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Workflow syntax
+        run: .venv/bin/python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"
+
+      - name: Tests with coverage
+        run: |
+          xvfb-run -a .venv/bin/python -m pytest -q \
+            --cov=airlinx --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage.xml --cov-report=html:htmlcov \
+            --junitxml=junit-unit.xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+            junit-unit.xml
+          if-no-files-found: warn
+
+  e2e:
+    name: Browser e2e (UI mock + landing page)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python environment
+        run: |
+          /usr/bin/python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install pytest pytest-asyncio playwright
+
+      - name: Chromium for Playwright
+        run: .venv/bin/python -m playwright install --with-deps chromium
+
+      - name: e2e tests
+        run: .venv/bin/python -m pytest tests/e2e -m e2e -q --junitxml=junit-e2e.xml
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: junit-e2e.xml
+          if-no-files-found: warn

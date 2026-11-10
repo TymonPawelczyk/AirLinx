@@ -1,0 +1,121 @@
+/* AirLinx: tokeny interfejsu (warstwa semantyczna).
+   Źródło kolorów, krojów i promieni: brand-tokens.css (kopia docs/brand/final/tokens.css, zmienne --ax-*).
+   Ten plik nadaje im role w UI i dodaje warstwy pochodne (wypełnienia, poświaty, cienie, ruch).
+   Kolejność ładowania: brand-tokens.css → tokens.css → components.css → app.css.
+   Motyw ciemny jest podstawowy; jasny włącza <html data-theme="light">. */
+
+/* Fonty dołączone do paczki (SIL OFL 1.1). local() bierze kroje systemowe Zorin OS, gdy są. */
+@font-face { font-family: "Inter"; font-weight: 400; src: local("Inter"), local("Inter Regular"), url("assets/fonts/Inter-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Inter"; font-weight: 500; src: local("Inter Medium"), url("assets/fonts/Inter-Medium.ttf") format("truetype"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400 500; src: local("JetBrains Mono Medium"), local("JetBrains Mono"), url("assets/fonts/JetBrainsMono-Medium.ttf") format("truetype"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 800; src: local("JetBrains Mono ExtraBold"), url("assets/fonts/JetBrainsMono-ExtraBold.ttf") format("truetype"); }
+
+:root {
+  color-scheme: dark;
+
+  /* — kolory marki (role 1:1 z BRAND.md §5) — */
+  --bg: var(--ax-bg);                 /* #000000: okno = wyłączony panel OLED */
+  --surface: var(--ax-surface);       /* #0D0D0D: menu, arkusze */
+  --surface-2: var(--ax-surface-2);   /* #161616: studzienki */
+  --border: var(--ax-border);         /* #2A2A2A: obrysy kontrolek */
+  --text: var(--ax-text);             /* #F3F2EF  18,8:1 */
+  --text-2: var(--ax-text-2);         /* #A3A29E   8,2:1 */
+  --text-3: var(--ax-text-3);         /* #7E7D7A   5,1:1 */
+  --accent: var(--ax-accent);         /* #3DF2A0 Fosfor: romb, tally, akcja główna, stan aktywny */
+  --accent-hover: var(--ax-accent-hover);
+  --on-accent: var(--ax-on-accent);   /* 12,9:1 na Fosforze */
+  --accent-text: var(--ax-accent-text);
+  --success: var(--ax-success);
+  --warning: var(--ax-warning);       /* bursztyn: uwaga, zgoda na TV */
+  --error: var(--ax-error);
+  --error-text: var(--ax-error);      /* tekst błędu na error-soft */
+  --info: var(--ax-info);
+  --focus: var(--ax-focus);
+
+  /* — warstwy pochodne (ciemny) — */
+  --border-subtle: rgba(243, 242, 239, .07);
+  --fill: rgba(243, 242, 239, .045);
+  --fill-2: rgba(243, 242, 239, .08);
+  --fill-3: rgba(243, 242, 239, .13);
+  --accent-soft: rgba(61, 242, 160, .13);
+  --accent-glow: rgba(61, 242, 160, .45);
+  --error-soft: rgba(255, 122, 107, .13);
+  --warning-soft: rgba(245, 181, 68, .14);
+  --scrim: rgba(0, 0, 0, .66);
+  --thumb: #F3F2EF;
+  --chart-area: rgba(61, 242, 160, .12);
+
+  /* — telewizor: matryca zawsze czarna, także w motywie jasnym — */
+  --screen: #000000;
+  --screen-text: #F3F2EF;
+  --bezel: linear-gradient(180deg, #161616, #070707);
+  --bezel-edge: inset 0 0 0 1px rgba(243,242,239,.07), inset 0 1px 0 rgba(243,242,239,.09);
+  --screen-shadow: 0 40px 90px -30px rgba(0,0,0,.9);
+  --glow-opacity: .85;                /* poświata „bias light” */
+
+  /* — cienie — */
+  --shadow-pop: 0 0 0 1px var(--border), 0 24px 60px -12px rgba(0,0,0,.75);
+  --shadow-sheet: 0 0 0 1px var(--border), 0 40px 100px -20px rgba(0,0,0,.85);
+  --primary-glow: 0 0 0 1px rgba(61,242,160,.35), 0 10px 34px -12px rgba(61,242,160,.5);
+
+  /* — typografia — */
+  --font-ui: var(--ax-font-ui);              /* Inter: tekst interfejsu */
+  --font-display: var(--ax-font-display);    /* JetBrains Mono: tytuły */
+  --font-mono: var(--ax-font-mono);          /* JetBrains Mono: wszystkie liczby, IP */
+  --fs-display: 36px;   --lh-display: 1.08;  --tr-display: -.035em;
+  --fs-title: 22px;     --lh-title: 1.2;     --tr-title: -.025em;
+  --fs-stat: 32px;
+  --fs-body: var(--ax-size-base);   --lh-body: 1.5;
+  --fs-small: 13px;
+  --fs-micro: var(--ax-size-sm);
+
+  /* — odstępy (skala 4 px) — */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+
+  /* — promienie (marka: 8 / 12 / 18) — */
+  --r-sm: 4px;                    /* znaczniki, miniatury */
+  --r-md: var(--ax-radius-s);     /* 8: przyciski, pola, segmenty */
+  --r-lg: var(--ax-radius-m);     /* 12: karty, akcja główna, menu */
+  --r-xl: var(--ax-radius-l);     /* 18: arkusze, ramka telewizora */
+  --r-pill: 999px;                /* przełączniki */
+
+  /* — ruch — */
+  --ease-out: var(--ax-ease-out);
+  --ease-io: var(--ax-ease-io);
+  --ease-spring: cubic-bezier(.32, .72, 0, 1);
+  --dur-fast: var(--ax-duration-fast);    /* 140 ms: hover, naciśnięcie */
+  --dur-base: var(--ax-duration-base);    /* 220 ms: przełączniki, segmenty */
+  --dur-slow: 340ms;                      /* arkusze, panele */
+  --dur-power: 900ms;                     /* włączenie ekranu OLED */
+
+  /* — układ — */
+  --bar-h: 52px;
+  --rail-w: 312px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --border-subtle: rgba(14, 14, 13, .08);
+  --fill: rgba(14, 14, 13, .04);
+  --fill-2: rgba(14, 14, 13, .065);
+  --fill-3: rgba(14, 14, 13, .1);
+  --accent-text: var(--ax-accent-hover);   /* #00663B: 5,5:1 także na accent-soft */
+  --text-3: #5F5F5B;                       /* przyciemniony względem marki (#6B6B67): 4,6:1 także na fill-2/fill-3 */
+  --error-text: #A82E22;                   /* 5,4:1 na error-soft */
+  --accent-soft: rgba(0, 122, 71, .1);
+  --accent-glow: rgba(0, 122, 71, .3);
+  --error-soft: rgba(194, 57, 43, .09);
+  --warning-soft: rgba(138, 83, 0, .1);
+  --scrim: rgba(14, 14, 13, .34);
+  --thumb: #FFFFFF;
+  --chart-area: rgba(0, 122, 71, .1);
+
+  --bezel: linear-gradient(180deg, #2a2a2a, #111);
+  --bezel-edge: inset 0 0 0 1px rgba(255,255,255,.06), inset 0 1px 0 rgba(255,255,255,.12);
+  --screen-shadow: 0 30px 60px -28px rgba(0,0,0,.45);
+  --glow-opacity: .36;
+
+  --shadow-pop: 0 0 0 1px var(--border), 0 16px 40px -12px rgba(14,14,13,.22);
+  --shadow-sheet: 0 0 0 1px var(--border), 0 30px 80px -20px rgba(14,14,13,.3);
+  --primary-glow: 0 1px 0 rgba(255,255,255,.18) inset, 0 10px 24px -12px rgba(0,122,71,.6);
+}

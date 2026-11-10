@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AirLinx
+Comment=AirLinx w zasobniku systemowym
+Icon=airlinx
+Exec=@EXEC@
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=5

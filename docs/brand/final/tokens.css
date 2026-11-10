@@ -1,0 +1,97 @@
+/* AirLinx — tokeny marki (kierunek C „Styk”). Wygenerowane przez docs/brand/_build/final.py.
+   Fonty: Inter i JetBrains Mono, oba SIL Open Font License 1.1 (zainstalowane w Zorin OS 17;
+   do paczki aplikacji można dołączyć pliki .ttf/.woff2 razem z plikiem OFL.txt). */
+
+:root {
+  color-scheme: dark;
+  --ax-bg: #000000;
+  --ax-surface: #0D0D0D;
+  --ax-surface-2: #161616;
+  --ax-border: #2A2A2A;
+  --ax-text: #F3F2EF;
+  --ax-text-2: #A3A29E;
+  --ax-text-3: #7E7D7A;
+  --ax-accent: #3DF2A0;
+  --ax-accent-hover: #6CF7B8;
+  --ax-on-accent: #00160B;
+  --ax-accent-text: #3DF2A0;
+  --ax-success: #86D69A;
+  --ax-warning: #F5B544;
+  --ax-error: #FF7A6B;
+  --ax-info: #7DB8FF;
+  --ax-focus: #6CF7B8;
+
+  --ax-font-display: "JetBrains Mono", ui-monospace, monospace;
+  --ax-font-ui: "Inter", "Cantarell", system-ui, sans-serif;
+  --ax-font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --ax-weight-regular: 400; --ax-weight-medium: 500; --ax-weight-semibold: 600; --ax-weight-display: 800;
+  --ax-size-xs: 11px;
+  --ax-size-sm: 12px;
+  --ax-size-base: 14px;
+  --ax-size-md: 16px;
+  --ax-size-lg: 20px;
+  --ax-size-xl: 28px;
+  --ax-size-tv-title: 64px;
+  --ax-size-tv-body: 28px;
+  --ax-tracking-display: -0.04em; --ax-tracking-title: -0.01em; --ax-tracking-caps: 0.12em;
+  --ax-radius-s: 8px; --ax-radius-m: 12px; --ax-radius-l: 18px;
+  --ax-ease-out: cubic-bezier(.22, 1, .36, 1); --ax-ease-io: cubic-bezier(.65, 0, .35, 1);
+  --ax-duration-fast: 140ms; --ax-duration-base: 220ms; --ax-connecting-loop: 1600ms;
+
+  /* Aliasy pod nazwy zmiennych z UI „OLED Cinema” (ui/tokens.css) */
+  --bg: var(--ax-bg);
+  --ink: var(--ax-text);
+  --raise: var(--ax-surface);
+  --accent: var(--ax-accent);
+  --accent-ink: var(--ax-on-accent);
+  --accent-text: var(--ax-accent-text);
+  --ok: var(--ax-success);
+  --danger: var(--ax-error);
+  --font: var(--ax-font-ui);
+  --mono: var(--ax-font-mono);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --ax-bg: #F2F2F0;
+    --ax-surface: #FFFFFF;
+    --ax-surface-2: #E9E9E6;
+    --ax-border: #D6D6D2;
+    --ax-text: #0E0E0D;
+    --ax-text-2: #575754;
+    --ax-text-3: #6B6B67;
+    --ax-accent: #007A47;
+    --ax-accent-hover: #00663B;
+    --ax-on-accent: #FFFFFF;
+    --ax-accent-text: #007A47;
+    --ax-success: #1F8F43;
+    --ax-warning: #8A5300;
+    --ax-error: #C2392B;
+    --ax-info: #1D63B8;
+    --ax-focus: #007A47;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ax-bg: #F2F2F0;
+  --ax-surface: #FFFFFF;
+  --ax-surface-2: #E9E9E6;
+  --ax-border: #D6D6D2;
+  --ax-text: #0E0E0D;
+  --ax-text-2: #575754;
+  --ax-text-3: #6B6B67;
+  --ax-accent: #007A47;
+  --ax-accent-hover: #00663B;
+  --ax-on-accent: #FFFFFF;
+  --ax-accent-text: #007A47;
+  --ax-success: #1F8F43;
+  --ax-warning: #8A5300;
+  --ax-error: #C2392B;
+  --ax-info: #1D63B8;
+  --ax-focus: #007A47;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --ax-duration-fast: 0ms; --ax-duration-base: 0ms; }
+}

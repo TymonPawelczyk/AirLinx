@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pl" class="no-js" data-repo-url="https://github.com/TymonPawelczyk/AirLinx">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Regulamin · AirLinx</title>
+  <meta name="description" content="Zasady korzystania ze strony i programu AirLinx: licencja GPL-3.0, granice odpowiedzialności, bezpieczeństwo w sieci lokalnej, kontakt.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tymonpawelczyk.github.io/AirLinx/regulamin.html">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F2F0" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="preload" href="assets/fonts/JetBrainsMono-Medium.woff" as="font" type="font/woff" crossorigin>
+  <link rel="preload" href="assets/fonts/Inter-Regular.woff" as="font" type="font/woff" crossorigin>
+  <script>
+    /* Motyw ustawiamy przed pierwszym malowaniem, żeby nie mignął zły. */
+    (function () {
+      var d = document.documentElement;
+      d.classList.remove("no-js"); d.classList.add("js");
+      try { var t = localStorage.getItem("airlinx-theme"); if (t === "light" || t === "dark") d.setAttribute("data-theme", t); } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Strony prawne: tylko typografia długiego tekstu, reszta ze styles.css. */
+    .legal { padding-block: clamp(24px, 5vw, 64px) var(--section); }
+    .legal-doc { max-width: 760px; }
+    .legal-doc h1 { font: 500 clamp(30px, 3.4vw, 44px)/1.1 var(--font-display); letter-spacing: -.04em; text-wrap: balance; }
+    .legal-meta { margin-top: var(--sp-4); font-size: 14px; color: var(--text-3); }
+    .legal-note { margin-top: var(--sp-6); padding: var(--sp-4) var(--sp-5); border-radius: var(--r-lg); background: var(--fill); box-shadow: inset 0 0 0 1px var(--border-subtle); font-size: 14.5px; color: var(--text-2); }
+    .legal-note strong { color: var(--text); }
+    .legal-doc h2 { margin-top: var(--sp-12); font: 500 clamp(20px, 1.9vw, 24px)/1.25 var(--font-display); letter-spacing: -.03em; scroll-margin-top: var(--sp-6); }
+    .legal-doc h3 { margin-top: var(--sp-6); font-size: 16px; font-weight: 500; }
+    .legal-doc p, .legal-doc li { color: var(--text-2); }
+    .legal-doc h2 + p, .legal-doc h2 + ol, .legal-doc h2 + ul, .legal-doc h3 + p, .legal-doc h3 + ol, .legal-doc h3 + ul, .legal-doc p + p, .legal-doc p + ol, .legal-doc p + ul { margin-top: var(--sp-3); }
+    .legal-doc ol, .legal-doc ul { padding-left: 1.4em; }
+    .legal-doc ol { list-style: decimal; }
+    .legal-doc ul { list-style: disc; }
+    .legal-doc li + li { margin-top: var(--sp-2); }
+    .legal-doc li > ol { margin-top: var(--sp-2); list-style: lower-alpha; }
+    .legal-doc a { color: var(--accent-text); text-underline-offset: 3px; overflow-wrap: anywhere; }
+    .legal-doc strong { font-weight: 500; }
+    .legal-toc { margin-top: var(--sp-8); padding-top: var(--sp-6); border-top: 1px solid var(--border-subtle); }
+    .legal-toc p { font-size: 13px; font-weight: 500; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; }
+    .legal-toc ol { margin-top: var(--sp-3); columns: 2 220px; column-gap: var(--sp-8); font-size: 14.5px; }
+    .legal-toc li { break-inside: avoid; }
+    .legal-toc a { color: var(--text-2); text-decoration: none; }
+    .legal-toc a:hover { color: var(--text); text-decoration: underline; }
+    .table-scroll { margin-top: var(--sp-4); overflow-x: auto; }
+    .legal-doc table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14.5px; }
+    .legal-doc th, .legal-doc td { text-align: left; vertical-align: top; padding: 12px var(--sp-3); border-top: 1px solid var(--border-subtle); color: var(--text-2); }
+    .legal-doc thead th { border-top: 0; padding-top: 0; font-size: 13px; font-weight: 500; color: var(--text-3); }
+    .legal-doc td:first-child { white-space: nowrap; }
+    .foot-nav a[aria-current="page"] { color: var(--text); }
+    .legal ~ .site-foot .foot-legal { margin-top: 0; padding-top: var(--sp-8); border-top: 1px solid var(--border-subtle); }
+  </style>
+  <script src="main.js" defer></script>
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="lockup" viewBox="53 53 715 127">
+    <path d="M53.78 179.36 85.53 124.36 53.78 69.36H84.58L116.33 124.36L84.58 179.36Z"/>
+    <path d="M249.5 179.36 217.74 124.36 249.5 69.36H218.69L186.94 124.36L218.69 179.36Z"/>
+    <path class="frame" d="M138.19 124.36 151.64 101.07 165.08 124.36 151.64 147.65 138.19 124.36Z"/>
+    <path d="M305.18 159.7Q295.01 159.7 289.06 153.81Q283.11 147.92 283.11 138.37Q283.11 128.08 290.42 122.13Q297.74 116.17 311.01 116.17H324.4V111.83Q324.4 107.99 321.73 105.82Q319.07 103.65 314.11 103.65Q309.4 103.65 306.61 105.51Q303.82 107.37 303.57 110.97H285.96Q286.33 100.92 293.9 94.97Q301.46 89.02 314.36 89.02Q327.87 89.02 335.44 95.22Q343 101.42 343 112.58V158.46H325.02V146.68Q323.78 152.75 318.51 156.23Q313.24 159.7 305.18 159.7ZM633.41 158.46V90.26H651.39V102.66Q652.88 96.46 657.77 92.74Q662.67 89.02 669.74 89.02Q679.66 89.02 685.67 95.96Q691.69 102.91 691.69 114.44V158.46H673.09V116.3Q673.09 110.97 670.3 108.05Q667.51 105.14 662.55 105.14Q657.59 105.14 654.8 108.05Q652.01 110.97 652.01 116.3V158.46ZM699.13 158.46 722.69 123.12 700.74 90.26H721.45L729.88 103.9Q730.87 105.51 731.74 107.49Q732.61 109.48 733.1 110.72Q733.6 109.48 734.47 107.49Q735.34 105.51 736.33 103.9L744.76 90.26H765.47L743.64 123.12L767.08 158.46H746.37L736.45 142.34Q735.46 140.6 734.53 138.68Q733.6 136.76 733.1 135.52Q732.61 136.76 731.74 138.68Q730.87 140.6 729.88 142.34L719.84 158.46ZM535.32 158.46Q528.13 158.46 522.68 155.42Q517.22 152.38 514.18 146.93Q511.14 141.47 511.14 134.28V84.68H489.44V67.94H529.74V133.66Q529.74 137.25 531.79 139.49Q533.84 141.72 537.18 141.72H556.4V158.46ZM354.9 158.46V141.72H377.47V107H357.38V90.26H396.07V141.72H415.66V158.46ZM564.46 158.46V141.72H587.03V107H566.94V90.26H605.63V141.72H625.22V158.46ZM426.33 158.46V90.26H444.31V103.15Q445.8 96.58 450.82 92.8Q455.84 89.02 463.4 89.02Q473.7 89.02 479.52 95.96Q485.35 102.91 485.35 115.06V121.88H466.75V116.3Q466.75 110.97 463.9 108.05Q461.05 105.14 455.84 105.14Q450.63 105.14 447.78 108.42Q444.93 111.71 444.93 117.79V158.46ZM311.75 144.82Q317.58 144.82 320.99 141.9Q324.4 138.99 324.4 134.28V127.33H311.38Q306.42 127.33 303.75 129.75Q301.09 132.17 301.09 136.01Q301.09 139.86 303.88 142.34Q306.67 144.82 311.75 144.82ZM584.69 67.32 596.33 53.78 607.98 67.32 596.33 80.86ZM375.13 67.32 386.77 53.78 398.42 67.32 386.77 80.86Z"/>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+</svg>
+
+<a class="skip-link" href="#tresc">Przejdź do treści</a>
+
+<header class="site-head">
+  <div class="wrap head-row">
+    <a class="brand" href="index.html" aria-label="AirLinx, strona główna">
+      <svg class="lockup" viewBox="0 0 715 127" aria-hidden="true" focusable="false"><use href="#lockup"/></svg>
+    </a>
+    <nav class="head-nav" aria-label="Sekcje strony">
+      <ul>
+        <li><a href="index.html#jak-to-dziala">Jak to działa</a></li>
+        <li><a href="index.html#wymagania">Wymagania</a></li>
+        <li><a href="index.html#instalacja">Instalacja</a></li>
+        <li><a href="index.html#faq">Pytania</a></li>
+      </ul>
+    </nav>
+    <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Włącz motyw jasny">
+      <svg class="i i-to-light" aria-hidden="true"><use href="#i-sun"/></svg>
+      <svg class="i i-to-dark" aria-hidden="true"><use href="#i-moon"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="tresc" tabindex="-1" class="legal">
+  <div class="wrap">
+    <article class="legal-doc">
+      <h1>Regulamin strony i&nbsp;programu AirLinx</h1>
+      <p class="legal-meta"><span class="num">Wersja 1.0</span> · obowiązuje od <span class="num">2026-11-10</span> · przygotowano 10 listopada 2026 r.</p>
+      <p class="legal-note"><strong>Uwaga.</strong> Wzór przygotowany z pomocą AI (Claude). Nie stanowi porady prawnej. Przed publikacją zalecana weryfikacja przez prawnika.</p>
+
+      <nav class="legal-toc" aria-labelledby="toc-h">
+        <p id="toc-h">Spis treści</p>
+        <ol>
+          <li><a href="#p1">Po co jest ten regulamin</a></li>
+          <li><a href="#p2">Definicje</a></li>
+          <li><a href="#p3">Kto udostępnia stronę i program</a></li>
+          <li><a href="#p4">Co obejmuje regulamin</a></li>
+          <li><a href="#p5">Wymagania techniczne</a></li>
+          <li><a href="#p6">Licencja</a></li>
+          <li><a href="#p7">Brak gwarancji i granice odpowiedzialności</a></li>
+          <li><a href="#p8">Treści, które pokazujesz na telewizorze</a></li>
+          <li><a href="#p9">Bezpieczeństwo w sieci lokalnej</a></li>
+          <li><a href="#p10">Prywatność</a></li>
+          <li><a href="#p11">Znaki towarowe</a></li>
+          <li><a href="#p12">Zgłoszenia, reklamacje i kontakt</a></li>
+          <li><a href="#p13">Zmiany regulaminu</a></li>
+          <li><a href="#p14">Postanowienia końcowe</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="p1">§ 1. Po co jest ten regulamin</h2>
+      <ol>
+        <li>Regulamin opisuje zasady korzystania ze strony AirLinx i z programu AirLinx.</li>
+        <li>AirLinx jest projektem prywatnym i niekomercyjnym. Za program i stronę nie płacisz, nie zakładasz konta i nie podajesz żadnych danych.</li>
+        <li>Prawa do kopiowania, zmieniania i rozpowszechniania programu wynikają z licencji GNU GPL w wersji 3 lub dowolnej późniejszej (§ 6). Regulamin nie zmienia tej licencji i jej nie ogranicza.</li>
+      </ol>
+
+      <h2 id="p2">§ 2. Definicje</h2>
+      <ol>
+        <li><strong>Autor</strong>: osoba wskazana w § 3, twórca programu i właściciel strony.</li>
+        <li><strong>Program</strong> albo <strong>AirLinx</strong>: aplikacja na Linuksa, która wysyła obraz, dźwięk i pliki multimedialne z komputera na telewizor w sieci lokalnej, razem z kodem źródłowym i dokumentacją.</li>
+        <li><strong>Strona</strong>: statyczna strona informacyjna o programie, hostowana w serwisie GitHub Pages, razem z podstronami (ten regulamin, polityka prywatności).</li>
+        <li><strong>Repozytorium</strong>: publiczne repozytorium kodu programu w serwisie GitHub: <a href="https://github.com/TymonPawelczyk/AirLinx">github.com/TymonPawelczyk/AirLinx</a>.</li>
+        <li><strong>Użytkownik</strong> albo <strong>Ty</strong>: każda osoba, która odwiedza stronę albo pobiera, instaluje lub uruchamia program.</li>
+        <li><strong>Telewizor</strong>: urządzenie z odbiornikiem Google Cast albo DLNA MediaRenderer, do którego program wysyła obraz, dźwięk lub pliki.</li>
+        <li><strong>Sieć lokalna</strong>: sieć domowa lub firmowa (Wi-Fi albo kabel), w której są jednocześnie komputer i telewizor.</li>
+        <li><strong>Licencja</strong>: GNU General Public License w wersji 3 albo, według Twojego wyboru, w dowolnej późniejszej wersji opublikowanej przez Free Software Foundation (oznaczenie SPDX: GPL-3.0-or-later). Tekst wersji 3 jest w pliku <code>LICENSE</code> w repozytorium.</li>
+      </ol>
+
+      <h2 id="p3">§ 3. Kto udostępnia stronę i program</h2>
+      <ol>
+        <li>Stronę i program udostępnia TymonPawelczyk (GitHub), osoba fizyczna działająca prywatnie (profil: <a href="https://github.com/TymonPawelczyk">github.com/TymonPawelczyk</a>).</li>
+        <li>Kontakt z Autorem jest możliwy wyłącznie przez serwis GitHub: zgłoszenie w zakładce <a href="https://github.com/TymonPawelczyk/AirLinx/issues">Issues</a> w repozytorium, a w sprawach bezpieczeństwa prywatne zgłoszenie podatności (§ 9 ust. 5). Autor nie podaje adresu e-mail.</li>
+        <li>Autor nie prowadzi działalności gospodarczej związanej z AirLinx i nie pobiera za program opłat.</li>
+      </ol>
+
+      <h2 id="p4">§ 4. Co obejmuje regulamin</h2>
+      <ol>
+        <li>Strona zawiera informacje o programie: opis funkcji, wymagania, instrukcję instalacji, odpowiedzi na pytania i linki do repozytorium.</li>
+        <li>Program pobierasz z repozytorium, czyli z serwisu GitHub. Pobieranie kodu, zgłaszanie błędów i inne działania w serwisie GitHub podlegają też regulaminowi GitHub (GitHub Terms of Service). Za działanie serwisu GitHub odpowiada GitHub, Inc.</li>
+        <li>Autor nie świadczy płatnych usług, nie prowadzi kont użytkowników, nie przyjmuje zamówień i nie zawiera umów sprzedaży.</li>
+        <li>Autor nie przechowuje treści, które wysyłasz na telewizor. Program działa na Twoim komputerze i przesyła dane bezpośrednio do Twojego telewizora.</li>
+      </ol>
+
+      <h2 id="p5">§ 5. Wymagania techniczne</h2>
+      <ol>
+        <li>Do przeglądania strony wystarczy aktualna przeglądarka internetowa. JavaScript nie jest wymagany. Służy tylko do przełącznika motywu i kopiowania poleceń.</li>
+        <li>Do korzystania z programu potrzebujesz:
+          <ol>
+            <li>komputera z Linuksem i środowiskiem GNOME w sesji X11 (Wayland nie jest obsługiwany);</li>
+            <li>Pythona 3 z PyGObject (GTK 3, WebKit2GTK 4.1), programu ffmpeg i serwera dźwięku PipeWire albo PulseAudio z narzędziem <code>pactl</code>;</li>
+            <li>telewizora z Google Cast (kopia ekranu, dźwięk, pliki) albo z DLNA (pliki, kopia ekranu z większym opóźnieniem);</li>
+            <li>komputera i telewizora w tej samej sieci lokalnej oraz zapory, która przepuszcza wykrywanie urządzeń (mDNS UDP 5353, SSDP UDP 1900) i połączenia od telewizora do komputera;</li>
+            <li>dostępu do internetu w czasie instalacji, bo instalator pobiera biblioteki z PyPI.</li>
+          </ol>
+        </li>
+        <li>Aktualne wymagania i listę sprawdzonych urządzeń podaje <a href="index.html#wymagania">strona</a> i plik README. Program może nie działać z telewizorami i konfiguracjami, których Autor nie sprawdzał.</li>
+      </ol>
+
+      <h2 id="p6">§ 6. Licencja</h2>
+      <ol>
+        <li>Program jest wolnym oprogramowaniem na licencji GNU GPL w wersji 3 albo, według Twojego wyboru, dowolnej późniejszej (GPL-3.0-or-later). Pełny, wiążący tekst wersji 3 (po angielsku) jest w pliku <code>LICENSE</code> w repozytorium oraz na stronie <a href="https://www.gnu.org/licenses/gpl-3.0.html">gnu.org/licenses/gpl-3.0.html</a>.</li>
+        <li>Najważniejsze zasady licencji w skrócie (w razie rozbieżności rozstrzyga tekst licencji):
+          <ol>
+            <li>możesz uruchamiać program w dowolnym celu, także komercyjnym;</li>
+            <li>możesz badać i zmieniać kod;</li>
+            <li>możesz rozpowszechniać kopie programu, oryginalne i zmienione, pod warunkiem że udostępnisz je na tej samej licencji, zachowasz informacje o prawach autorskich i zapewnisz odbiorcom dostęp do kodu źródłowego.</li>
+          </ol>
+        </li>
+        <li>Program zawiera i wykorzystuje elementy osób trzecich (biblioteki, fonty, fragmenty kodu openscreen, certyfikaty główne Google Cast). Ich licencje i noty są w pliku <code>THIRD_PARTY_NOTICES.md</code> w repozytorium.</li>
+        <li>Do samego uruchamiania programu nie musisz akceptować Licencji (pkt 9 Licencji). Jej warunki stosujesz, gdy program zmieniasz lub rozpowszechniasz.</li>
+      </ol>
+
+      <h2 id="p7">§ 7. Brak gwarancji i granice odpowiedzialności</h2>
+      <ol>
+        <li>Program jest udostępniany bezpłatnie i „w takim stanie, w jakim jest”. Autor nie daje gwarancji, że program będzie działał bez błędów, z każdym telewizorem, bez przerw albo z określoną jakością obrazu i opóźnieniem. Wyniki pomiarów na stronie dotyczą konkretnego sprzętu, na którym je zmierzono.</li>
+        <li>W zakresie, w jakim pozwalają na to przepisy, Autor nie odpowiada za szkody wynikłe z korzystania z programu lub strony albo z braku możliwości korzystania z nich, w szczególności za utratę danych, przerwy w transmisji ani nieprawidłowe działanie telewizora lub sieci.</li>
+        <li>Ograniczenie z ust. 2 <strong>nie obejmuje</strong>:
+          <ol>
+            <li>szkody wyrządzonej przez Autora umyślnie lub przez rażące niedbalstwo;</li>
+            <li>szkody na osobie (uszczerbku na zdrowiu, śmierci);</li>
+            <li>innych przypadków, w których przepisy bezwzględnie obowiązujące nie pozwalają wyłączyć ani ograniczyć odpowiedzialności.</li>
+          </ol>
+        </li>
+        <li>Ust. 1–3 opisują, jak pkt 15–17 Licencji stosuje się według prawa polskiego. Nie ograniczają uprawnień, które daje Ci Licencja.</li>
+        <li>Strona i repozytorium mogą być czasowo niedostępne, np. z powodu awarii lub prac w serwisie GitHub. Autor może zakończyć rozwijanie programu. Kopie programu, które już masz, nadal możesz używać na zasadach Licencji. Ty też możesz w każdej chwili przestać korzystać z programu i go odinstalować (<code>./install.sh --uninstall</code>).</li>
+      </ol>
+
+      <h2 id="p8">§ 8. Treści, które pokazujesz na telewizorze</h2>
+      <ol>
+        <li>Ty decydujesz, co program wysyła na telewizor: cały ekran, okno, dźwięk systemu, mikrofon, dźwięk wybranej aplikacji albo pliki. Za te treści odpowiadasz Ty.</li>
+        <li>Pokazując filmy, muzykę i zdjęcia, przestrzegaj praw autorskich i praw do wizerunku. Pokaz w domu, dla rodziny i znajomych, zwykle mieści się w dozwolonym użytku osobistym. Pokaz publiczny (np. w lokalu, na wydarzeniu) może wymagać zgody uprawnionych lub licencji.</li>
+        <li>Program nie omija zabezpieczeń przed kopiowaniem (DRM). Regulaminy serwisów z filmami i muzyką mogą zabraniać przechwytywania obrazu ekranu. Sprawdź je, zanim udostępnisz taki serwis na telewizorze.</li>
+        <li>Kopia ekranu pokazuje wszystko, co widać na wybranym monitorze lub w oknie, także powiadomienia i wiadomości. Mikrofon może przesyłać rozmowy osób w pomieszczeniu. Nie używaj programu do podglądania ani podsłuchiwania innych osób bez ich wiedzy.</li>
+        <li>Nie używaj programu do wyświetlania treści niezgodnych z prawem.</li>
+      </ol>
+
+      <h2 id="p9">§ 9. Bezpieczeństwo w sieci lokalnej</h2>
+      <ol>
+        <li>W czasie pracy program uruchamia na Twoim komputerze serwer HTTP, z którego telewizor pobiera pliki i strumień obrazu. Serwer działa na losowym porcie. Każdy plik ma adres z losowym, trudnym do odgadnięcia tokenem. Po zakończeniu odtwarzania adres przestaje działać.</li>
+        <li>Kopia ekranu przez Google Cast jest szyfrowana (AES-128). Pliki multimedialne i kopia ekranu przez DLNA są przesyłane bez szyfrowania (HTTP). Osoba, która ma dostęp do Twojej sieci i podsłuchuje ruch, może zobaczyć adres z tokenem i przesyłaną treść.</li>
+        <li>Dlatego:
+          <ol>
+            <li>używaj programu w sieci, której ufasz, np. w domowej sieci zabezpieczonej hasłem;</li>
+            <li>nie używaj go w sieciach publicznych i otwartych (hotel, kawiarnia, sieć dla gości);</li>
+            <li>jeśli Twój komputer ma publiczny adres IP, korzystaj z zapory, która blokuje połączenia z internetu.</li>
+          </ol>
+        </li>
+        <li>Przy pierwszym połączeniu program zapamiętuje tożsamość telewizora. Jeśli przy kolejnym połączeniu tożsamość się nie zgadza, program przerywa połączenie i pyta, czy zaufać telewizorowi ponownie. Potwierdzaj to tylko wtedy, gdy wiesz, że telewizor został wymieniony lub zresetowany.</li>
+        <li>Błędy bezpieczeństwa zgłaszaj Autorowi prywatnie, przez GitHub Private Vulnerability Reporting: w repozytorium zakładka Security, przycisk „Report a vulnerability” (<a href="https://github.com/TymonPawelczyk/AirLinx/security/advisories/new">formularz zgłoszenia</a>). Nie zgłaszaj ich w publicznych Issues, żeby można je było naprawić przed ujawnieniem.</li>
+      </ol>
+
+      <h2 id="p10">§ 10. Prywatność</h2>
+      <ol>
+        <li>Program nie wysyła Autorowi żadnych danych: nie ma telemetrii, kont ani sprawdzania aktualizacji. Strona nie używa cookies ani analityki.</li>
+        <li>Szczegóły, w tym zapisy lokalne programu, logi serwera GitHub Pages i dane ze zgłoszeń w serwisie GitHub, opisuje <a href="prywatnosc.html">Polityka prywatności</a>.</li>
+      </ol>
+
+      <h2 id="p11">§ 11. Znaki towarowe</h2>
+      <ol>
+        <li>Google Cast i Chromecast są znakami towarowymi Google LLC. Samsung jest znakiem towarowym Samsung Electronics Co., Ltd. DLNA jest znakiem Digital Living Network Alliance. AirPlay jest znakiem towarowym Apple Inc. Miracast jest znakiem towarowym Wi-Fi Alliance. Linux jest zarejestrowanym znakiem towarowym Linusa Torvaldsa. GNOME jest znakiem towarowym GNOME Foundation.</li>
+        <li>Nazwy te występują na stronie i w programie tylko po to, żeby opisać, z jakimi urządzeniami i systemami AirLinx współpracuje.</li>
+        <li>AirLinx jest niezależnym projektem. Nie jest powiązany z Google, Samsungiem, Apple, Wi-Fi Alliance ani DLNA, nie jest przez nie wspierany ani certyfikowany.</li>
+      </ol>
+
+      <h2 id="p12">§ 12. Zgłoszenia, reklamacje i kontakt</h2>
+      <ol>
+        <li>Błędy programu, problemy ze stroną i zastrzeżenia do regulaminu zgłaszasz w zakładce <a href="https://github.com/TymonPawelczyk/AirLinx/issues">Issues</a> w repozytorium. Potrzebujesz do tego konta w serwisie GitHub. Zgłoszenie jest publiczne. Błędy bezpieczeństwa zgłaszasz prywatnie (§ 9 ust. 5).</li>
+        <li>Opisz, czego dotyczy zgłoszenie, a przy błędach programu podaj wersję systemu, model telewizora i kroki, które prowadzą do błędu. Nie wklejaj do publicznych zgłoszeń danych osobowych ani pełnych logów z adresami z tokenami.</li>
+        <li>Autor odpowiada na zgłoszenia w tym samym zgłoszeniu w serwisie GitHub. Projekt jest rozwijany prywatnie, więc Autor nie gwarantuje terminu odpowiedzi ani naprawy błędu.</li>
+        <li>Złożenie zgłoszenia nie ogranicza Twoich praw wynikających z przepisów prawa.</li>
+      </ol>
+
+      <h2 id="p13">§ 13. Zmiany regulaminu</h2>
+      <ol>
+        <li>Autor może zmienić regulamin tylko z ważnej przyczyny: zmiany przepisów, zmiany funkcji programu, zmiany sposobu udostępniania strony lub programu (np. hostingu), potrzeby poprawy bezpieczeństwa albo usunięcia niejasności w tekście.</li>
+        <li>Nowa wersja ma nową datę i numer wersji. Autor publikuje ją na stronie co najmniej 14 dni przed wejściem w życie, chyba że zmiana wynika z przepisów prawa albo z potrzeby pilnej poprawy bezpieczeństwa.</li>
+        <li>Poprzednie wersje są dostępne w historii repozytorium.</li>
+        <li>Zmiana regulaminu nie odbiera praw, które już masz na podstawie Licencji do pobranych kopii programu.</li>
+      </ol>
+
+      <h2 id="p14">§ 14. Postanowienia końcowe</h2>
+      <ol>
+        <li>Regulamin podlega prawu polskiemu. Jeśli jesteś konsumentem i mieszkasz w innym państwie, zachowujesz ochronę, jaką dają Ci bezwzględnie obowiązujące przepisy tego państwa.</li>
+        <li>Spory rozstrzyga sąd właściwy według przepisów ogólnych.</li>
+        <li>Jeśli któreś postanowienie regulaminu okaże się nieważne, pozostałe nadal obowiązują.</li>
+        <li>Regulamin jest dostępny na stronie i w repozytorium (<code>docs/legal/REGULAMIN.md</code>). Możesz go bezpłatnie pobrać, zapisać i wydrukować.</li>
+      </ol>
+    </article>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <svg class="lockup foot-lockup" viewBox="0 0 715 127" role="img" aria-label="AirLinx" focusable="false"><use href="#lockup"/></svg>
+      <p class="foot-line">Obraz w locie.</p>
+    </div>
+    <nav class="foot-nav" aria-label="Stopka">
+      <ul>
+        <li><a href="index.html#instalacja">Instalacja</a></li>
+        <li><a href="index.html#wymagania">Wymagania</a></li>
+        <li><a href="index.html#faq">Pytania</a></li>
+        <li data-repo-item hidden><a href="index.html" data-repo-link>Kod źródłowy</a></li>
+        <li><a href="regulamin.html" aria-current="page">Regulamin</a></li>
+        <li><a href="prywatnosc.html">Prywatność</a></li>
+      </ul>
+    </nav>
+    <p class="foot-legal">AirLinx jest niezależnym projektem i nie jest powiązany z Google ani z Samsungiem. Google Cast jest znakiem towarowym Google LLC.</p>
+  </div>
+</footer>
+
+</body>
+</html>

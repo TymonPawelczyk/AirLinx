@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AirLinx — ekran TV</title>
+<!-- Ekran powitalny dla odbiornika w przeglądarce TV (Tizen) i dla podglądu Cast.
+     Parametry URL: ?tv=Salon&state=connecting|ready|waiting-permission|lost
+     Fonty dołączone z ../fonts (SIL OFL 1.1). Brak zależności sieciowych. -->
+<style>
+@font-face{font-family:"AX Inter";src:local("Inter"),url("../fonts/Inter-Regular.ttf") format("truetype");font-weight:400}
+@font-face{font-family:"AX Inter";src:local("Inter Medium"),url("../fonts/Inter-Medium.ttf") format("truetype");font-weight:500}
+@font-face{font-family:"AX Mono";src:local("JetBrains Mono Medium"),url("../fonts/JetBrainsMono-Medium.ttf") format("truetype");font-weight:500}
+@font-face{font-family:"AX Mono";src:local("JetBrains Mono ExtraBold"),url("../fonts/JetBrainsMono-ExtraBold.ttf") format("truetype");font-weight:800}
+
+:root{--bg:#000;--ink:#F3F2EF;--ink2:#A3A29E;--ink3:#7E7D7A;--acc:#3DF2A0;--warn:#F5B544;--err:#FF7A6B;
+ --ease:cubic-bezier(.65,0,.35,1)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;cursor:none}
+body{font-family:"AX Inter",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.stage{position:fixed;inset:0;display:grid;place-items:center;
+ background:radial-gradient(60vmax 40vmax at 50% 46%,rgba(61,242,160,.06),transparent 70%),#000}
+.stack{display:flex;flex-direction:column;align-items:center}
+.mark{display:block}
+.mark{width:15vh;height:15vh}
+.route{margin-top:4.2vh;display:flex;align-items:baseline;gap:1.6vh;font-family:"AX Mono","JetBrains Mono",monospace;
+ font-weight:800;letter-spacing:-.03em;font-size:6vh;line-height:1}
+.route .from{color:var(--ink2)}
+.route .arrow{color:var(--acc);font-weight:500}
+.status{margin-top:2.8vh;font-size:2.4vh;color:var(--ink2);letter-spacing:.01em;min-height:3vh}
+.meta{margin-top:1.2vh;font-family:"AX Mono","JetBrains Mono",monospace;font-weight:500;font-size:1.6vh;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase}
+.foot{position:fixed;left:0;right:0;bottom:5.5vh;display:flex;justify-content:center;opacity:.55}
+.word{height:2.6vh;width:auto}
+.foot .word path{fill:var(--ink3)}
+body[data-state=ready] .status{color:var(--acc)}
+body[data-state=waiting-permission] .status{color:var(--warn)}
+body[data-state=lost] .status{color:var(--err)}
+body[data-state=lost] .mark .frame,body[data-state=waiting-permission] .mark .frame{animation:none;opacity:.25}
+body[data-state=ready] .mark .frame{animation:none;opacity:1}
+.stack{animation:in .9s cubic-bezier(.22,1,.36,1) both}
+@keyframes in{from{opacity:0;transform:translateY(1.5vh)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.stack{animation:none}}
+</style></head>
+<body data-state="connecting">
+<main class="stage"><div class="stack">
+  <svg class="mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.sp-c{fill:#F3F2EF}
+.sp-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:sp-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.sp-l{animation:sp-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.sp-r{animation:sp-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+@keyframes sp-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes sp-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes sp-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes sp-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .sp-f{animation:sp-br 2.4s ease-in-out infinite;transform:none}
+ .sp-l,.sp-r{animation:none}
+}</style><path class="sp-c sp-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="sp-c sp-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="sp-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+
+  <div class="route" aria-label="Salon odbiera z AirLinx"><span class="to" id="tv">Salon</span><span class="arrow">←</span><span class="from">AirLinx</span></div>
+  <div class="status" id="status" role="status" aria-live="polite">Łączenie z komputerem…</div>
+  <div class="meta" id="meta">Odbiornik gotowy · 4K · HDR</div>
+</div></main>
+<div class="foot"><svg class="word" style="" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3983 934.2" >
+
+<path fill="#F3F2EF" d="M218 894.2Q136 894.2 88 846.7Q40 799.2 40 722.2Q40 639.2 99 591.2Q158 543.2 265 543.2H373V508.2Q373 477.2 351.5 459.7Q330 442.2 290 442.2Q252 442.2 229.5 457.2Q207 472.2 205 501.2H63Q66 420.2 127 372.2Q188 324.2 292 324.2Q401 324.2 462 374.2Q523 424.2 523 514.2V884.2H378V789.2Q368 838.2 325.5 866.2Q283 894.2 218 894.2ZM2865 884.2V334.2H3010V434.2Q3022 384.2 3061.5 354.2Q3101 324.2 3158 324.2Q3238 324.2 3286.5 380.2Q3335 436.2 3335 529.2V884.2H3185V544.2Q3185 501.2 3162.5 477.7Q3140 454.2 3100 454.2Q3060 454.2 3037.5 477.7Q3015 501.2 3015 544.2V884.2ZM3395 884.2 3585 599.2 3408 334.2H3575L3643 444.2Q3651 457.2 3658 473.2Q3665 489.2 3669 499.2Q3673 489.2 3680 473.2Q3687 457.2 3695 444.2L3763 334.2H3930L3754 599.2L3943 884.2H3776L3696 754.2Q3688 740.2 3680.5 724.7Q3673 709.2 3669 699.2Q3665 709.2 3658 724.7Q3651 740.2 3643 754.2L3562 884.2ZM2074 884.2Q2016 884.2 1972 859.7Q1928 835.2 1903.5 791.2Q1879 747.2 1879 689.2V289.2H1704V154.2H2029V684.2Q2029 713.2 2045.5 731.2Q2062 749.2 2089 749.2H2244V884.2ZM619 884.2V749.2H801V469.2H639V334.2H951V749.2H1109V884.2ZM2309 884.2V749.2H2491V469.2H2329V334.2H2641V749.2H2799V884.2ZM1195 884.2V334.2H1340V438.2Q1352 385.2 1392.5 354.7Q1433 324.2 1494 324.2Q1577 324.2 1624 380.2Q1671 436.2 1671 534.2V589.2H1521V544.2Q1521 501.2 1498 477.7Q1475 454.2 1433 454.2Q1391 454.2 1368 480.7Q1345 507.2 1345 556.2V884.2ZM271 774.2Q318 774.2 345.5 750.7Q373 727.2 373 689.2V633.2H268Q228 633.2 206.5 652.7Q185 672.2 185 703.2Q185 734.2 207.5 754.2Q230 774.2 271 774.2ZM2472.09 149.2 2566 40 2659.91 149.2 2566 258.4ZM782.09 149.2 876 40 969.91 149.2 876 258.4Z"/>
+</svg>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), st=q.get('state')||'connecting', tv=q.get('tv');
+  var copy={connecting:'Łączenie z komputerem…',ready:'Połączono. Obraz za chwilę.',
+    'waiting-permission':'Zaakceptuj połączenie pilotem.',lost:'Utracono sygnał. Ponawianie…'};
+  if(tv) document.getElementById('tv').textContent=tv;
+  document.body.dataset.state=copy[st]?st:'connecting';
+  document.getElementById('status').textContent=copy[document.body.dataset.state];
+})();
+</script>
+</body></html>

@@ -1,0 +1,7 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.10",
+  "extraPaths": ["/usr/lib/python3/dist-packages"],
+  "exclude": [".venv", "**/node_modules", "docs/brand/_build", "spikes"]
+}

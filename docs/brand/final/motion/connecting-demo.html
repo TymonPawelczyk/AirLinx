@@ -1,0 +1,137 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>AirLinx — animacja „łączenie”</title>
+<style>body{margin:0;background:#000;color:#A3A29E;font:13px Inter,system-ui,sans-serif;padding:32px}
+h1{color:#F3F2EF;font:600 18px Inter;margin:0 0 6px} p{margin:0 0 20px}
+.row{display:flex;gap:24px;align-items:center;flex-wrap:wrap} svg{width:140px;height:140px}
+.light{background:#F2F2F0;border-radius:14px;padding:12px}
+figure{margin:0;text-align:center} figure svg{width:120px;height:120px} figcaption{font:11px 'JetBrains Mono',monospace}
+code{color:#3DF2A0}</style></head><body>
+<h1>Animacja „łączenie”</h1><p>Romb wylatuje z lewego szewronu, przechodzi przez szczelinę i znika w prawym. Szewrony delikatnie „podają” klatkę. Pętla 1,6 s, <code>cubic-bezier(.65,0,.35,1)</code>. Przy <code>prefers-reduced-motion: reduce</code> romb stoi w miejscu i tylko powoli pulsuje (opacity).</p>
+<div class="row"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.live-c{fill:#F3F2EF}
+.live-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:live-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.live-l{animation:live-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.live-r{animation:live-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+@keyframes live-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes live-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes live-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes live-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .live-f{animation:live-br 2.4s ease-in-out infinite;transform:none}
+ .live-l,.live-r{animation:none}
+}</style><path class="live-c live-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="live-c live-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="live-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<div class="light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.livel-c{fill:#0E0E0D}
+.livel-f{fill:#007A47;transform-box:fill-box;transform-origin:center;animation:livel-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.livel-l{animation:livel-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.livel-r{animation:livel-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+@keyframes livel-fly{0%{transform:translateX(-39.14px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.14px) scale(.3);opacity:0}}
+@keyframes livel-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes livel-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes livel-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .livel-f{animation:livel-br 2.4s ease-in-out infinite;transform:none}
+ .livel-l,.livel-r{animation:none}
+}</style><path class="livel-c livel-l" d="M8 194.56 46.43 128 8 61.44H46.43L84.86 128L46.43 194.56Z"/><path class="livel-c livel-r" d="M248 194.56 209.57 128 248 61.44H209.57L171.14 128L209.57 194.56Z"/><path class="livel-f frame" d="M111.73 128 128 99.82 144.27 128 128 156.18 111.73 128Z"/></svg>
+</div></div>
+<h1 style="margin-top:28px">Klatki</h1><div class="row"><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.f0-c{fill:#F3F2EF}
+.f0-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:f0-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.0s;}
+.f0-l{animation:f0-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.0s;}
+.f0-r{animation:f0-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.0s;}
+@keyframes f0-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes f0-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes f0-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes f0-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .f0-f{animation:f0-br 2.4s ease-in-out infinite;transform:none}
+ .f0-l,.f0-r{animation:none}
+}</style><path class="f0-c f0-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="f0-c f0-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="f0-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<figcaption>0 ms</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.f1-c{fill:#F3F2EF}
+.f1-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:f1-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.25s;}
+.f1-l{animation:f1-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.25s;}
+.f1-r{animation:f1-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.25s;}
+@keyframes f1-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes f1-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes f1-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes f1-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .f1-f{animation:f1-br 2.4s ease-in-out infinite;transform:none}
+ .f1-l,.f1-r{animation:none}
+}</style><path class="f1-c f1-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="f1-c f1-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="f1-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<figcaption>250 ms</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.f2-c{fill:#F3F2EF}
+.f2-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:f2-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.5s;}
+.f2-l{animation:f2-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.5s;}
+.f2-r{animation:f2-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.5s;}
+@keyframes f2-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes f2-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes f2-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes f2-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .f2-f{animation:f2-br 2.4s ease-in-out infinite;transform:none}
+ .f2-l,.f2-r{animation:none}
+}</style><path class="f2-c f2-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="f2-c f2-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="f2-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<figcaption>500 ms</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.f3-c{fill:#F3F2EF}
+.f3-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:f3-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.75s;}
+.f3-l{animation:f3-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.75s;}
+.f3-r{animation:f3-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-0.75s;}
+@keyframes f3-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes f3-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes f3-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes f3-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .f3-f{animation:f3-br 2.4s ease-in-out infinite;transform:none}
+ .f3-l,.f3-r{animation:none}
+}</style><path class="f3-c f3-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="f3-c f3-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="f3-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<figcaption>750 ms</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.f4-c{fill:#F3F2EF}
+.f4-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:f4-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.0s;}
+.f4-l{animation:f4-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.0s;}
+.f4-r{animation:f4-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.0s;}
+@keyframes f4-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes f4-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes f4-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes f4-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .f4-f{animation:f4-br 2.4s ease-in-out infinite;transform:none}
+ .f4-l,.f4-r{animation:none}
+}</style><path class="f4-c f4-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="f4-c f4-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="f4-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<figcaption>1000 ms</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.f5-c{fill:#F3F2EF}
+.f5-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:f5-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.25s;}
+.f5-l{animation:f5-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.25s;}
+.f5-r{animation:f5-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.25s;}
+@keyframes f5-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes f5-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes f5-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes f5-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .f5-f{animation:f5-br 2.4s ease-in-out infinite;transform:none}
+ .f5-l,.f5-r{animation:none}
+}</style><path class="f5-c f5-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="f5-c f5-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="f5-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<figcaption>1250 ms</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.f6-c{fill:#F3F2EF}
+.f6-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:f6-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.45s;}
+.f6-l{animation:f6-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.45s;}
+.f6-r{animation:f6-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;animation-play-state:paused;animation-delay:-1.45s;}
+@keyframes f6-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes f6-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes f6-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes f6-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .f6-f{animation:f6-br 2.4s ease-in-out infinite;transform:none}
+ .f6-l,.f6-r{animation:none}
+}</style><path class="f6-c f6-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="f6-c f6-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="f6-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>
+<figcaption>1450 ms</figcaption></figure></div>
+</body></html>

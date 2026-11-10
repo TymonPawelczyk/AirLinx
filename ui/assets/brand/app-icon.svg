@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<title>AirLinx</title>
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A1A1A"/><stop offset="1" stop-color="#000000"/></linearGradient><linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+<path fill="#000" fill-opacity=".22" d="M132 40H380C435.23 40 480 84.77 480 140V388C480 443.23 435.23 488 380 488H132C76.77 488 32 443.23 32 388V140C32 84.77 76.77 40 132 40Z"/>
+<path fill="url(#g)" d="M132 32H380C435.23 32 480 76.77 480 132V380C480 435.23 435.23 480 380 480H132C76.77 480 32 435.23 32 380V132C32 76.77 76.77 32 132 32Z"/>
+<rect x="33" y="33" width="446" height="446" rx="99" fill="none" stroke="url(#h)" stroke-width="2"/>
+<path fill="#F3F2EF" d="M100 339.68 150.62 252 100 164.32H149.1L199.72 252L149.1 339.68Z"/>
+<path fill="#F3F2EF" d="M412 339.68 361.38 252 412 164.32H362.9L312.28 252L362.9 339.68Z"/>
+<path fill="#3DF2A0" d="M234.57 252 256 214.88 277.43 252 256 289.12 234.57 252Z"/>
+</svg>

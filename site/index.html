@@ -1,0 +1,550 @@
+<!doctype html>
+<!--
+  Adres repozytorium: jedyne źródło to atrybut data-repo-url na <html> poniżej.
+  main.js wstawia go w drugie CTA („Kod źródłowy”), w link w stopce i w polecenie git clone.
+  Gdy atrybut nie jest adresem http(s), drugie CTA prowadzi do #jak-to-dziala, a link w stopce jest ukryty.
+-->
+<html lang="pl" class="no-js" data-repo-url="https://github.com/TymonPawelczyk/AirLinx">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AirLinx · ekran i filmy z Linuksa na telewizor</title>
+  <meta name="description" content="AirLinx wysyła ekran, dźwięk i pliki z Linuksa (GNOME, X11) na telewizor z Google Cast lub DLNA. Zmierzone na Samsung S85F: 1080p, 60 kl./s, 111 ms.">
+  <link rel="canonical" href="https://tymonpawelczyk.github.io/AirLinx/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tymonpawelczyk.github.io/AirLinx/">
+  <meta property="og:locale" content="pl_PL">
+  <meta property="og:site_name" content="AirLinx">
+  <meta property="og:title" content="AirLinx · Obraz w locie.">
+  <meta property="og:description" content="Pulpit, okno albo film z Linuksa na telewizorze w sieci domowej. Na telewizorze nic nie instalujesz.">
+  <meta property="og:image" content="https://tymonpawelczyk.github.io/AirLinx/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Znak AirLinx i hasło „Obraz w locie.” na czarnym tle">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F2F0" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="preload" href="assets/fonts/JetBrainsMono-Medium.woff" as="font" type="font/woff" crossorigin>
+  <link rel="preload" href="assets/fonts/Inter-Regular.woff" as="font" type="font/woff" crossorigin>
+  <script>
+    /* Motyw ustawiamy przed pierwszym malowaniem, żeby nie mignął zły. */
+    (function () {
+      var d = document.documentElement;
+      d.classList.remove("no-js"); d.classList.add("js");
+      try { var t = localStorage.getItem("airlinx-theme"); if (t === "light" || t === "dark") d.setAttribute("data-theme", t); } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="main.js" defer></script>
+</head>
+<body>
+
+<!-- Sprite: logo (ścieżki z docs/brand/final/logo, bez składania fontem) i ikony z UI aplikacji. -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="lockup" viewBox="53 53 715 127">
+    <path d="M53.78 179.36 85.53 124.36 53.78 69.36H84.58L116.33 124.36L84.58 179.36Z"/>
+    <path d="M249.5 179.36 217.74 124.36 249.5 69.36H218.69L186.94 124.36L218.69 179.36Z"/>
+    <path class="frame" d="M138.19 124.36 151.64 101.07 165.08 124.36 151.64 147.65 138.19 124.36Z"/>
+    <path d="M305.18 159.7Q295.01 159.7 289.06 153.81Q283.11 147.92 283.11 138.37Q283.11 128.08 290.42 122.13Q297.74 116.17 311.01 116.17H324.4V111.83Q324.4 107.99 321.73 105.82Q319.07 103.65 314.11 103.65Q309.4 103.65 306.61 105.51Q303.82 107.37 303.57 110.97H285.96Q286.33 100.92 293.9 94.97Q301.46 89.02 314.36 89.02Q327.87 89.02 335.44 95.22Q343 101.42 343 112.58V158.46H325.02V146.68Q323.78 152.75 318.51 156.23Q313.24 159.7 305.18 159.7ZM633.41 158.46V90.26H651.39V102.66Q652.88 96.46 657.77 92.74Q662.67 89.02 669.74 89.02Q679.66 89.02 685.67 95.96Q691.69 102.91 691.69 114.44V158.46H673.09V116.3Q673.09 110.97 670.3 108.05Q667.51 105.14 662.55 105.14Q657.59 105.14 654.8 108.05Q652.01 110.97 652.01 116.3V158.46ZM699.13 158.46 722.69 123.12 700.74 90.26H721.45L729.88 103.9Q730.87 105.51 731.74 107.49Q732.61 109.48 733.1 110.72Q733.6 109.48 734.47 107.49Q735.34 105.51 736.33 103.9L744.76 90.26H765.47L743.64 123.12L767.08 158.46H746.37L736.45 142.34Q735.46 140.6 734.53 138.68Q733.6 136.76 733.1 135.52Q732.61 136.76 731.74 138.68Q730.87 140.6 729.88 142.34L719.84 158.46ZM535.32 158.46Q528.13 158.46 522.68 155.42Q517.22 152.38 514.18 146.93Q511.14 141.47 511.14 134.28V84.68H489.44V67.94H529.74V133.66Q529.74 137.25 531.79 139.49Q533.84 141.72 537.18 141.72H556.4V158.46ZM354.9 158.46V141.72H377.47V107H357.38V90.26H396.07V141.72H415.66V158.46ZM564.46 158.46V141.72H587.03V107H566.94V90.26H605.63V141.72H625.22V158.46ZM426.33 158.46V90.26H444.31V103.15Q445.8 96.58 450.82 92.8Q455.84 89.02 463.4 89.02Q473.7 89.02 479.52 95.96Q485.35 102.91 485.35 115.06V121.88H466.75V116.3Q466.75 110.97 463.9 108.05Q461.05 105.14 455.84 105.14Q450.63 105.14 447.78 108.42Q444.93 111.71 444.93 117.79V158.46ZM311.75 144.82Q317.58 144.82 320.99 141.9Q324.4 138.99 324.4 134.28V127.33H311.38Q306.42 127.33 303.75 129.75Q301.09 132.17 301.09 136.01Q301.09 139.86 303.88 142.34Q306.67 144.82 311.75 144.82ZM584.69 67.32 596.33 53.78 607.98 67.32 596.33 80.86ZM375.13 67.32 386.77 53.78 398.42 67.32 386.77 80.86Z"/>
+  </symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8h4.5M3 16h4.5M16.5 8H21M16.5 16H21M3 12h18"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2"/><circle cx="9" cy="9.5" r="1.8"/><path d="m21 15-4.5-4.5L6 20.5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5.5 6v12l9-6-9-6ZM18.5 6v12"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6.5 9H3.5v6h3L11 19V5Z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.5 6a8.5 8.5 0 0 1 0 12"/></symbol>
+  <symbol id="i-subs" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 13.5h4M13.5 13.5H17M7 16h10"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx=".8"/><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3"/></symbol>
+</svg>
+
+<a class="skip-link" href="#tresc">Przejdź do treści</a>
+
+<header class="site-head">
+  <div class="wrap head-row">
+    <a class="brand" href="#top" aria-label="AirLinx, początek strony">
+      <svg class="lockup" viewBox="0 0 715 127" aria-hidden="true" focusable="false"><use href="#lockup"/></svg>
+    </a>
+    <nav class="head-nav" aria-label="Sekcje strony">
+      <ul>
+        <li><a href="#jak-to-dziala">Jak to działa</a></li>
+        <li><a href="#wymagania">Wymagania</a></li>
+        <li><a href="#instalacja">Instalacja</a></li>
+        <li><a href="#faq">Pytania</a></li>
+      </ul>
+    </nav>
+    <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Włącz motyw jasny">
+      <svg class="i i-to-light" aria-hidden="true"><use href="#i-sun"/></svg>
+      <svg class="i i-to-dark" aria-hidden="true"><use href="#i-moon"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="tresc" tabindex="-1">
+
+  <!-- 1. Hero -->
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="wrap">
+      <div class="hero-copy">
+        <svg class="mark hero-mark" viewBox="20 64 216 128" aria-hidden="true" focusable="false">
+          <path class="mk-l" d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/>
+          <path class="mk-r" d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/>
+          <path class="mk-d" d="M113.71 128 128 103.25 142.29 128 128 152.75 113.71 128Z"/>
+        </svg>
+        <p class="eyebrow">Obraz w locie.</p>
+        <h1 id="hero-h"><span>Ekran z Linuksa na telewizorze.</span> <span>Kabel HDMI zostaje w szufladzie.</span></h1>
+        <p class="lede">AirLinx wysyła cały monitor albo jedno okno, razem z dźwiękiem, na telewizor z Google Cast w Twojej sieci domowej. Filmy, muzykę i zdjęcia z dysku odtwarza na telewizorze, a na samym telewizorze nic nie instalujesz.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#instalacja">
+            <span>Zainstaluj AirLinx</span>
+            <span class="nest" aria-hidden="true"><svg class="i"><use href="#i-down"/></svg></span>
+          </a>
+          <!-- Domyślnie „Jak to działa”; main.js zamienia na „Kod źródłowy”, gdy data-repo-url ma prawdziwy adres. -->
+          <a class="btn btn-secondary" href="#jak-to-dziala" data-repo-cta>Jak to działa</a>
+        </div>
+        <p class="micro">
+          <span>GNOME na X11</span><span class="sep" aria-hidden="true"> · </span><span>instalacja do katalogu domowego, bez sudo</span><span class="sep" aria-hidden="true"> · </span><span>Google Cast, zapasowo DLNA</span>
+        </p>
+      </div>
+
+      <figure class="hero-screen">
+        <div class="screen-glow" aria-hidden="true">
+          <img class="for-dark" src="assets/shots/live.webp" alt="" width="1100" height="720" decoding="async">
+          <img class="for-light" src="assets/shots/light-live.webp" alt="" width="1100" height="720" loading="lazy" decoding="async">
+        </div>
+        <div class="window">
+          <img class="for-dark" src="assets/shots/live.webp" width="1100" height="720" decoding="async" fetchpriority="high"
+               alt="Okno AirLinx w stanie „Na żywo”: podgląd monitora DP-4 wysyłanego na telewizor Salon, pod nim opóźnienie, płynność, przepływność i rozdzielczość. Po prawej profil Gra / praca, włączony dźwięk na TV i przycisk Zatrzymaj.">
+          <img class="for-light" src="assets/shots/light-live.webp" width="1100" height="720" loading="lazy" decoding="async"
+               alt="Okno AirLinx w motywie jasnym, stan „Na żywo”: podgląd monitora DP-4, pod nim opóźnienie, płynność, przepływność i rozdzielczość. Po prawej profil Gra / praca, dźwięk na TV i przycisk Zatrzymaj.">
+        </div>
+      </figure>
+
+      <!-- 2. Pasek liczb -->
+      <section class="stats" aria-labelledby="stats-h">
+        <h2 id="stats-h" class="sr">Zmierzone liczby</h2>
+        <ul class="stat-list">
+          <li class="stat">
+            <p class="stat-v"><span class="tally" aria-hidden="true"></span><span class="num">111</span> <span class="unit">ms</span></p>
+            <p class="stat-l">od ekranu do obrazu na TV</p>
+            <p class="stat-n">ok. 90 ms z tego to przetwarzanie w samym telewizorze</p>
+          </li>
+          <li class="stat">
+            <p class="stat-v"><span class="num">60</span> <span class="unit">kl./s</span></p>
+            <p class="stat-l">stabilnie, w 1080p</p>
+            <p class="stat-n">0 utraconych klatek w pomiarze</p>
+          </li>
+          <li class="stat">
+            <p class="stat-v"><span class="num">12</span> <span class="unit">Mb/s</span></p>
+            <p class="stat-l">przepływność obrazu</p>
+            <p class="stat-n">RTT sieci ok. 3 ms</p>
+          </li>
+          <li class="stat">
+            <p class="stat-v"><span class="num">240</span> <span class="unit">ms</span></p>
+            <p class="stat-l">zmiana jakości w trakcie</p>
+            <p class="stat-n">sesja trwa dalej, restartuje się tylko koder</p>
+          </li>
+        </ul>
+        <p class="stats-foot">Zmierzone na Samsung S85F w sieci domowej, profil „Gra / praca”, dźwięk Opus 128 kb/s włączony.</p>
+      </section>
+    </div>
+  </section>
+
+  <div class="wrap"><div class="gap-rule" aria-hidden="true">
+    <svg class="mark" viewBox="20 64 216 128" focusable="false">
+      <path class="mk-l" d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/>
+      <path class="mk-r" d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/>
+      <path class="mk-d" d="M113.71 128 128 103.25 142.29 128 128 152.75 113.71 128Z"/>
+    </svg>
+  </div></div>
+
+  <!-- 3. Jak to działa -->
+  <section class="section how" id="jak-to-dziala" aria-labelledby="how-h">
+    <div class="wrap">
+      <h2 id="how-h" class="h2">Trzy kroki od uruchomienia do obrazu</h2>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-track" aria-hidden="true"><span class="step-n">1</span></div>
+          <h3 class="h3">Znajdź telewizor</h3>
+          <p>AirLinx przeszukuje sieć lokalną i pokazuje telewizory z nazwą i modelem. Jeśli któryś się nie zgłasza, wpisujesz jego adres IP ręcznie.</p>
+          <figure class="matrix">
+            <img src="assets/shots/discovery.webp" width="620" height="358" loading="lazy" decoding="async"
+                 alt="Ekran „Wybierz telewizor”: znaleziony jeden telewizor, Salon (Samsung S85F, 192.168.0.20), oznaczony jako wybrany. Pod listą przyciski „Dodaj ręcznie (IP)” i „Wróć”.">
+          </figure>
+        </li>
+        <li class="step">
+          <div class="step-track" aria-hidden="true"><span class="step-n">2</span></div>
+          <h3 class="h3">Wybierz, co pokazać</h3>
+          <p>Cały monitor albo jedno okno, z miniaturami podglądu. Przy dwóch monitorach wybierasz konkretny.</p>
+          <figure class="matrix">
+            <img src="assets/shots/source-picker-windows.webp" width="862" height="392" loading="lazy" decoding="async"
+                 alt="Arkusz „Co pokazać na Salon?” z zakładkami Monitory i Okna. Na karcie Okna trzy miniatury okien i przycisk Udostępnij.">
+          </figure>
+        </li>
+        <li class="step">
+          <div class="step-track" aria-hidden="true"><span class="step-n">3</span></div>
+          <h3 class="h3">Udostępnij ekran</h3>
+          <p>Jedno kliknięcie. Obraz pojawia się na telewizorze po 2,4–5,7 s, z czego większość to uruchamianie odbiornika w telewizorze. Przy pierwszym połączeniu telewizor może poprosić o zgodę na pilocie.</p>
+          <figure class="matrix">
+            <div class="matrix-screen">
+              <img class="connecting" src="assets/motion/airlinx-connecting.svg" width="256" height="256" loading="lazy" decoding="async"
+                   alt="Animacja łączenia: romb przelatuje przez szczelinę między dwoma szewronami znaku AirLinx.">
+              <span class="matrix-label" aria-hidden="true">Łączenie…</span>
+            </div>
+          </figure>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 4. Funkcje -->
+  <div class="features">
+
+    <!-- 4.1 Ekran -->
+    <section class="section feat feat-screen" aria-labelledby="f-screen-h">
+      <div class="wrap feat-grid">
+        <figure class="window feat-media">
+          <img src="assets/shots/live-details.webp" width="1100" height="720" loading="lazy" decoding="async"
+               alt="Okno AirLinx z rozwiniętym panelem Szczegóły: wykresy opóźnienia i przepływności z ostatnich 60 sekund oraz ścieżka sygnału z czasami etapów: komputer, koder, sieć i telewizor Salon, który zajmuje najwięcej czasu.">
+        </figure>
+        <div class="feat-text">
+          <h2 id="f-screen-h" class="h2">Monitor albo jedno okno, z liczbami na żywo</h2>
+          <p>AirLinx przechwytuje wybrany monitor albo okno i wysyła je do telewizora jako kopię ekranu Google Cast. Kursor myszy jest widoczny. Kiedy przesuniesz udostępniane okno, obraz na telewizorze podąża za nim. Źródło zmieniasz w trakcie, bez rozłączania.</p>
+          <p>Podczas transmisji okno pokazuje to samo, co widzi diagnostyka: opóźnienie, kl./s, przepływność, rozdzielczość i RTT sieci, odświeżane dwa razy na sekundę. Panel „Szczegóły” rozkłada opóźnienie na etapy: przechwytywanie, koder, sieć, telewizor. Kiedy obraz się spóźnia, widać, czyja to wina.</p>
+          <p>Gdy połączenie zerwie się w trakcie, AirLinx ponawia je trzy razy, po <span class="num">1</span>, <span class="num">2</span> i <span class="num">4 s</span>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4.2 Jakość -->
+    <section class="section feat feat-quality" aria-labelledby="f-quality-h">
+      <div class="wrap">
+        <h2 id="f-quality-h" class="h2">Trzy profile, zmiana bez zrywania sesji</h2>
+        <table class="profiles">
+          <caption class="sr">Profile jakości obrazu</caption>
+          <thead>
+            <tr><th scope="col">Profil</th><th scope="col">Obraz</th><th scope="col">Przepływność</th><th scope="col">Do czego</th></tr>
+          </thead>
+          <tbody>
+            <tr class="is-measured">
+              <th scope="row">Gra / praca</th>
+              <td data-label="Obraz" class="num">1080p · 60 kl./s</td>
+              <td data-label="Przepływność" class="num">12 Mb/s</td>
+              <td data-label="Do czego"><span>pisanie, prezentacje, spokojne gry<span class="measured"><span class="tally" aria-hidden="true"></span><strong><span class="num">111 ms</span> zmierzone</strong></span></span></td>
+            </tr>
+            <tr>
+              <th scope="row">Balans</th>
+              <td data-label="Obraz" class="num">1440p · 60 kl./s</td>
+              <td data-label="Przepływność" class="num">18 Mb/s</td>
+              <td data-label="Do czego"><span>Eksperymentalny. Opóźnienia na telewizorze jeszcze nie zmierzyliśmy.</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Kino</th>
+              <td data-label="Obraz" class="num">4K · 30 kl./s</td>
+              <td data-label="Przepływność" class="num">do 40 Mb/s</td>
+              <td data-label="Do czego"><span>Eksperymentalny. AirLinx prosi telewizor o bufor co najmniej <span class="num">400&nbsp;ms</span>, więc opóźnienie jest wyraźnie wyższe. Nie zmierzyliśmy go.</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="cols-2">
+          <p>Profil przełączasz w panelu obok podglądu. AirLinx restartuje wtedy tylko koder wideo (<span class="num">240 ms</span> w pomiarze), a połączenie z telewizorem zostaje. Przepływność możesz ustawić ręcznie od <span class="num">6</span> do <span class="num">40 Mb/s</span>, co pomaga przy słabym Wi-Fi.</p>
+          <p>Obraz koduje karta NVIDIA przez NVENC. Bez niej AirLinx przełącza się na koder procesorowy (libx264).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4.3 Dźwięk -->
+    <section class="section feat feat-audio" aria-labelledby="f-audio-h">
+      <div class="wrap audio-row">
+        <div class="feat-text">
+          <h2 id="f-audio-h" class="h2">Dźwięk komputera z głośników telewizora</h2>
+          <p>AirLinx nagrywa to, co gra na wyjściu systemowym (PipeWire albo PulseAudio), i wysyła to jako Opus <span class="num">128 kb/s</span> w tym samym strumieniu co obraz. Jeden przełącznik „Dźwięk na TV” wyłącza dźwięk, gdy wolisz zostać przy słuchawkach.</p>
+        </div>
+        <figure class="audio-crop">
+          <img class="for-dark" src="assets/shots/audio-toggle.webp" width="300" height="78" loading="lazy" decoding="async" alt="Fragment okna AirLinx: włączony przełącznik „Dźwięk na TV”, pod nim wybrane źródło „Dźwięk systemu”.">
+          <img class="for-light" src="assets/shots/light-audio-toggle.webp" width="300" height="78" loading="lazy" decoding="async" alt="Fragment okna AirLinx: włączony przełącznik „Dźwięk na TV”, pod nim wybrane źródło „Dźwięk systemu”.">
+        </figure>
+      </div>
+    </section>
+
+    <!-- 4.4 Multimedia -->
+    <section class="section feat feat-media-files" aria-labelledby="f-media-h">
+      <div class="wrap feat-grid feat-grid-rev">
+        <div class="feat-text">
+          <h2 id="f-media-h" class="h2">Filmy z dysku w jakości pliku</h2>
+          <p>Przeciągnij pliki na okno albo dodaj je przyciskiem. Wideo, muzyka i zdjęcia trafiają do kolejki i grają po kolei. Na telewizor wysyłasz też adres URL.</p>
+          <p>Zanim plik poleci, AirLinx sprawdza go przez ffprobe i wybiera najlżejszą drogę:</p>
+          <ol class="routes">
+            <li><span class="node" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span><p>telewizor zna format: plik idzie bez zmian, z przewijaniem;</p></li>
+            <li><span class="node" aria-hidden="true"><svg class="i"><use href="#i-layers"/></svg></span><p>telewizor zna kodeki, ale nie kontener: AirLinx przepakowuje plik w locie, bez ponownego kodowania. Tak trafia na Google Cast plik MKV;</p></li>
+            <li><span class="node" aria-hidden="true"><svg class="i"><use href="#i-cpu"/></svg></span><p>telewizor nie zna kodeka: AirLinx koduje strumień na bieżąco (NVENC albo procesor).</p></li>
+          </ol>
+          <p>Napisy tekstowe (SRT, ASS, WebVTT) działają z pliku obok filmu i ze ścieżek wewnątrz MKV. Ścieżkę wybierasz w trakcie odtwarzania. Pauza, przewijanie, głośność telewizora i następna pozycja są w oknie.</p>
+          <p class="note">Sprawdzone na Samsung S85F: pliki MKV i MP4 przez Google Cast i przez DLNA.</p>
+        </div>
+
+        <!-- Kompozycja w stylu UI zamiast zrzutu (zrzuty media*.png mają prawdziwe tytuły). Plik jest fikcyjny. -->
+        <figure class="player-wrap" aria-label="Ilustracja: plik wakacje-2026.mkv odtwarzany na telewizorze przez Google Cast, z napisami i kolejką">
+          <div class="player" aria-hidden="true">
+            <div class="pl-head">
+              <span class="pl-ico"><svg class="i"><use href="#i-film"/></svg></span>
+              <div class="pl-title">
+                <b class="mono-title">wakacje-2026.mkv</b>
+                <span>Przepakowanie w locie, bez ponownego kodowania</span>
+              </div>
+            </div>
+            <div class="pl-progress">
+              <div class="bar"><i style="--p: 31%"></i></div>
+              <div class="times num"><span>00:12:48</span><span>00:41:07</span></div>
+            </div>
+            <div class="pl-transport">
+              <span class="tb tb-main"><svg class="i"><use href="#i-pause"/></svg></span>
+              <span class="tb"><svg class="i"><use href="#i-next"/></svg></span>
+              <span class="pl-vol"><svg class="i"><use href="#i-vol"/></svg><span class="vol-bar"><i></i></span></span>
+            </div>
+            <div class="pl-rows">
+              <div class="pl-row"><svg class="i"><use href="#i-subs"/></svg><span>Napisy</span><span class="num faint">wakacje-2026.srt</span></div>
+            </div>
+            <div class="pl-routes">
+              <div class="route is-live"><span class="tally"></span><b>Google Cast</b><span>Odtwarza</span></div>
+              <div class="route"><span class="ring"></span><b>DLNA</b><span>Zapasowo</span></div>
+            </div>
+            <div class="pl-queue">
+              <p class="q-h">Kolejka</p>
+              <div class="q-i"><svg class="i"><use href="#i-film"/></svg><span class="num">wakacje-2026-czesc-2.mp4</span></div>
+              <div class="q-i"><svg class="i"><use href="#i-image"/></svg><span class="num">molo-hel.jpg</span></div>
+              <div class="q-i"><svg class="i"><use href="#i-music"/></svg><span class="num">lato-2026.flac</span></div>
+            </div>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 4.5 Zasobnik + 4.6 Bezpieczeństwo -->
+    <section class="section feat feat-pair" aria-label="Zasobnik i bezpieczeństwo">
+      <div class="wrap pair">
+        <div class="pair-a">
+          <h2 class="h2 h2-sm">Działa w tle, z ikoną w zasobniku</h2>
+          <p>Zamknięcie okna chowa AirLinx do zasobnika, a udostępnianie trwa dalej. Z menu ikony zaczynasz i kończysz udostępnianie albo otwierasz okno. „Zakończ” zatrzymuje transmisję na telewizorze, zanim program się zamknie. AirLinx może startować razem z systemem, od razu schowany w zasobniku.</p>
+        </div>
+        <div class="pair-b">
+          <h2 class="h2 h2-sm">Łączy się tylko z telewizorem, który potwierdzi tożsamość</h2>
+          <p>Przy połączeniu AirLinx prosi telewizor o podpis certyfikatem urządzenia Cast i sprawdza, czy łańcuch certyfikatów prowadzi do głównego urzędu Google Cast. Tożsamość telewizora trafia do pliku <code>~/.config/airlinx/known_tvs.json</code> (uprawnienia <span class="num">0600</span>). Jeśli przy kolejnym połączeniu tożsamość się nie zgadza, AirLinx przerywa i pyta, czy zaufać temu telewizorowi ponownie. Na Samsung S85F weryfikacja przechodzi.</p>
+          <p>Kopia ekranu przez Google Cast jest szyfrowana AES-128, jak wymaga protokół Cast. Pliki i kopię ekranu przez DLNA telewizor pobiera z komputera zwykłym HTTP, bez szyfrowania, pod adresami z losowym tokenem, więc używaj AirLinx w sieci, której ufasz. Jeśli na telewizorze coś już leci, AirLinx najpierw pyta, czy to przerwać.</p>
+          <p>Konto nie jest potrzebne. Obraz, dźwięk i pliki z dysku idą wyłącznie między komputerem a telewizorem w Twojej sieci.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 5. Stany znaku -->
+  <section class="section states" aria-labelledby="states-h">
+    <div class="wrap states-grid">
+      <div class="states-intro">
+        <h2 id="states-h" class="h2">Ikona mówi, co się dzieje</h2>
+        <p>Znak AirLinx to litera „x” rozcięta na dwa szewrony: komputer i telewizor. Romb między nimi to jedna klatka obrazu.</p>
+      </div>
+      <ul class="state-list">
+        <li class="state">
+          <svg class="mark state-mark" viewBox="20 64 216 128" aria-hidden="true" focusable="false">
+            <path d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/>
+            <path d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/>
+          </svg>
+          <p><b>Gotowy.</b> Szczelina pusta, nic nie leci.</p>
+        </li>
+        <li class="state" data-live-on-view>
+          <svg class="mark state-mark" viewBox="20 64 216 128" aria-hidden="true" focusable="false">
+            <path class="mk-l" d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/>
+            <path class="mk-r" d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/>
+            <path class="mk-d" d="M113.71 128 128 103.25 142.29 128 128 152.75 113.71 128Z"/>
+          </svg>
+          <p><b>Na żywo.</b> Klatka jest w drodze.</p>
+        </li>
+        <li class="state state-err">
+          <!-- Wykrzyknik w proporcjach ikony airlinx-error-symbolic, przeskalowany do mastera znaku. -->
+          <svg class="mark state-mark" viewBox="20 64 216 128" aria-hidden="true" focusable="false">
+            <path d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/>
+            <path d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/>
+            <path class="mk-e" d="M115.5 69.55H140.5V142.6H115.5ZM115.5 161.45H140.5V186.45H115.5Z"/>
+          </svg>
+          <p><b>Błąd.</b> Coś stanęło w szczelinie. Okno mówi co, na przykład: „Utracono połączenie z telewizorem.”</p>
+        </li>
+      </ul>
+      <p class="states-foot">
+        <span class="tray-icons" aria-hidden="true">
+          <svg viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3Z"/></svg>
+          <svg viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3ZM6.5 8 8 5 9.5 8 8 11Z"/></svg>
+          <svg viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3ZM7 3H9V9.5H7ZM7 11H9V13H7Z"/></svg>
+        </span>
+        Ta sama ikona siedzi w zasobniku GNOME, więc stan transmisji widać bez otwierania okna.
+      </p>
+    </div>
+  </section>
+
+  <div class="wrap"><div class="gap-rule" aria-hidden="true">
+    <svg class="mark" viewBox="20 64 216 128" focusable="false">
+      <path class="mk-l" d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/>
+      <path class="mk-r" d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/>
+      <path class="mk-d" d="M113.71 128 128 103.25 142.29 128 128 152.75 113.71 128Z"/>
+    </svg>
+  </div></div>
+
+  <!-- 6. Wymagania -->
+  <section class="section reqs" id="wymagania" aria-labelledby="reqs-h">
+    <div class="wrap">
+      <h2 id="reqs-h" class="h2">Na czym to działa</h2>
+      <div class="req-grid">
+        <div class="req-group">
+          <h3 class="h3">Komputer</h3>
+          <dl>
+            <div><dt>System</dt><dd>Linux z GNOME w sesji <strong>X11</strong>. Testowane na Zorin OS 17.3 (baza Ubuntu 22.04).</dd></div>
+            <div><dt>Wayland</dt><dd>Nieobsługiwany. Kopia ekranu korzysta z narzędzi X11 (x11grab, xrandr, xprop). Na ekranie logowania wybierz sesję Xorg. W sesji Wayland AirLinx pokazuje ostrzeżenie.</dd></div>
+            <div><dt>Karta graficzna</dt><dd>Zalecana NVIDIA z NVENC (testowane: RTX 3080). Bez NVENC kopia ekranu, przez Google Cast i przez DLNA, koduje na procesorze (libx264), czego nie mierzyliśmy. Karty AMD i Intel trafiają na ten sam koder procesorowy.</dd></div>
+            <div><dt>Dźwięk</dt><dd>PipeWire albo PulseAudio z <code>pactl</code>.</dd></div>
+            <div><dt>Zasobnik</dt><dd>GNOME z obsługą AppIndicator / StatusNotifierItem (w Zorin OS i Ubuntu jest domyślnie).</dd></div>
+            <div><dt>Python</dt><dd>Systemowy Python 3 z PyGObject (GTK 3, WebKit2GTK 4.1). Testowane: 3.10.</dd></div>
+          </dl>
+        </div>
+        <div class="req-group">
+          <h3 class="h3">Telewizor</h3>
+          <dl>
+            <div><dt>Google Cast</dt><dd>Kopia ekranu, dźwięk i multimedia. Sprawdzone na Samsung S85F. Inne urządzenia z Google Cast nie były jeszcze testowane.</dd></div>
+            <div><dt>DLNA (zapasowo)</dt><dd>Filmy, muzyka i zdjęcia. Kopia ekranu przez DLNA jest strumieniem MPEG-TS z wyraźnie większym opóźnieniem (niezmierzonym). Pliki przez DLNA sprawdzone na Samsung S85F.</dd></div>
+            <div><dt>AirPlay, Miracast</dt><dd>Nieobsługiwane.</dd></div>
+            <div><dt>Na telewizorze</dt><dd>Nic nie instalujesz. AirLinx używa odbiorników wbudowanych w telewizor.</dd></div>
+          </dl>
+          <h3 class="h3 req-net-h">Sieć</h3>
+          <p class="req-net">Komputer i telewizor w tej samej sieci lokalnej (Wi-Fi albo kabel). Zapora musi przepuszczać wykrywanie urządzeń (mDNS, UDP <span class="num">5353</span> i SSDP, UDP <span class="num">1900</span>) oraz połączenia od telewizora do komputera, bo telewizor sam pobiera pliki z AirLinx.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Instalacja -->
+  <section class="section install" id="instalacja" aria-labelledby="install-h">
+    <div class="wrap install-grid">
+      <div class="install-intro">
+        <h2 id="install-h" class="h2">Instalacja w trzech poleceniach</h2>
+        <p>Instalator kopiuje AirLinx do <code>~/.local</code>, tworzy własne środowisko Pythona w <code>~/.local/share/airlinx/venv</code> i dodaje program do menu aplikacji. Sam instalator nie potrzebuje sudo. Pakiety systemowe instalujesz raz, przez apt.</p>
+      </div>
+      <div class="install-steps">
+        <figure class="code">
+          <figcaption><span><span class="num">1.</span> Pakiety systemowe <span class="cap-note">(nazwy dla Zorin OS 17 i Ubuntu 22.04)</span></span>
+            <button class="copy-btn" type="button" data-copy><svg class="i i-copy" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-done" aria-hidden="true"><use href="#i-check"/></svg><span class="copy-label">Kopiuj</span></button></figcaption>
+<pre tabindex="0" role="region"><code>sudo apt install git ffmpeg python3-gi python3-venv gir1.2-gtk-3.0 gir1.2-webkit2-4.1 \
+  x11-xserver-utils x11-utils pulseaudio-utils</code></pre>
+        </figure>
+
+        <figure class="code">
+          <figcaption><span><span class="num">2.</span> AirLinx</span>
+            <button class="copy-btn" type="button" data-copy><svg class="i i-copy" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-done" aria-hidden="true"><use href="#i-check"/></svg><span class="copy-label">Kopiuj</span></button></figcaption>
+<pre tabindex="0" role="region"><code>git clone <span class="repo-url" data-repo-text></span>
+cd AirLinx
+./install.sh</code></pre>
+        </figure>
+
+        <figure class="code">
+          <figcaption><span>Opcjonalnie: start razem z systemem, schowany w zasobniku</span>
+            <button class="copy-btn" type="button" data-copy><svg class="i i-copy" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-done" aria-hidden="true"><use href="#i-check"/></svg><span class="copy-label">Kopiuj</span></button></figcaption>
+<pre tabindex="0" role="region"><code>./install.sh --autostart</code></pre>
+        </figure>
+
+        <figure class="code">
+          <figcaption><span>Uruchomienie</span>
+            <button class="copy-btn" type="button" data-copy><svg class="i i-copy" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-done" aria-hidden="true"><use href="#i-check"/></svg><span class="copy-label">Kopiuj</span></button></figcaption>
+<pre tabindex="0" role="region"><code>airlinx               <span class="c"># okno + ikona w zasobniku</span>
+airlinx --no-window   <span class="c"># tylko zasobnik</span></code></pre>
+          <p class="code-after">Albo z menu aplikacji: „AirLinx”.</p>
+        </figure>
+
+        <figure class="code">
+          <figcaption><span>Odinstalowanie</span>
+            <button class="copy-btn" type="button" data-copy><svg class="i i-copy" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-done" aria-hidden="true"><use href="#i-check"/></svg><span class="copy-label">Kopiuj</span></button></figcaption>
+<pre tabindex="0" role="region"><code>./install.sh --uninstall</code></pre>
+          <p class="code-after">Ustawienia zostają w <code>~/.config/airlinx</code>.</p>
+        </figure>
+
+        <p class="install-micro">Instalator pobiera biblioteki Pythona z PyPI (pychromecast, zeroconf, aiohttp, async-upnp-client, cryptography, protobuf), więc przy instalacji potrzebny jest internet. Jeśli <code>~/.local/bin</code> nie jest w <code>PATH</code>, instalator o tym powie.</p>
+      </div>
+    </div>
+    <p class="sr" role="status" aria-live="polite" data-copy-status></p>
+  </section>
+
+  <!-- 8. FAQ -->
+  <section class="section faq" id="faq" aria-labelledby="faq-h">
+    <div class="wrap faq-wrap">
+      <h2 id="faq-h" class="h2">Pytania</h2>
+      <div class="faq-list">
+        <details>
+          <summary><span>Czy AirLinx działa na Waylandzie?</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></summary>
+          <p>Kopia ekranu nie, bo Wayland nie jest obsługiwany. AirLinx przechwytuje obraz narzędziami X11, więc potrzebujesz sesji Xorg (wybierasz ją na ekranie logowania). W sesji Wayland AirLinx pokazuje o tym ostrzeżenie. Odtwarzanie plików nie korzysta z przechwytywania ekranu, ale na Waylandzie go nie testowaliśmy.</p>
+        </details>
+        <details>
+          <summary><span>Czy nada się do gier?</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></summary>
+          <p>Do spokojnych tak. W profilu „Gra / praca” od ekranu do telewizora mija ok. <span class="num">111 ms</span>, z czego ok. <span class="num">90 ms</span> to przetwarzanie w samym telewizorze. Strategia, gry przygodowe czy granie na padzie z kanapy wchodzą w grę. Strzelanki sieciowe i gry rytmiczne lepiej zostawić na kablu HDMI.</p>
+        </details>
+        <details>
+          <summary><span>Czy potrzebuję internetu?</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></summary>
+          <p>Do instalacji tak (git i biblioteki z PyPI). Potem AirLinx rozmawia tylko z telewizorem w sieci lokalnej. Nie sprawdzaliśmy, czy telewizor uruchomi swoje odbiorniki Cast bez dostępu do internetu. Wyjątek: gdy dodasz do kolejki adres pliku z internetu, ten plik zostanie pobrany z serwera, który wskazałeś.</p>
+        </details>
+        <details>
+          <summary><span>Co AirLinx wysyła poza moją sieć?</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></summary>
+          <p>Nic o Tobie. W kodzie nie ma telemetrii, kont użytkowników ani połączeń z serwerami autora. Z internetem AirLinx łączy się tylko wtedy, gdy dodasz do kolejki adres pliku z sieci. Kopia ekranu przez Google Cast jest szyfrowana, a pliki i kopia ekranu przez DLNA idą w sieci lokalnej zwykłym HTTP pod adresami z losowym tokenem. Sam telewizor po uruchomieniu odbiornika Cast może łączyć się z serwerami Google. Ustawienia i zapamiętane telewizory leżą w <code>~/.config/airlinx</code>.</p>
+        </details>
+        <details>
+          <summary><span>Mam iPhone'a w głowie. Czy to AirPlay dla Linuksa?</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></summary>
+          <p>Robi to samo, czego oczekujesz od AirPlay: ekran i filmy na telewizorze, po sieci. Mówi przy tym protokołami Google Cast i DLNA, więc AirPlay i Miracast nie wchodzą w grę. Telewizor z Google Cast albo DLNA to właściwy odbiornik. Apple TV nim nie jest.</p>
+        </details>
+        <details>
+          <summary><span>Nie mam karty NVIDIA. Zadziała?</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></summary>
+          <p>Tak. Bez NVENC AirLinx sam przełącza się na koder procesorowy libx264, przy kopii ekranu przez Google Cast i przy zapasowej kopii przez DLNA. Nie mierzyliśmy, ile to kosztuje procesor i opóźnienie. Którego kodera AirLinx używa, widać w ustawieniach. Pliki, które trzeba przekodować, też zejdą na procesor.</p>
+        </details>
+        <details>
+          <summary><span>Czy muszę coś instalować na telewizorze?</span><svg class="i" aria-hidden="true"><use href="#i-down"/></svg></summary>
+          <p>Nie. AirLinx korzysta z odbiorników, które telewizor ma wbudowane: aplikacji kopii ekranu Cast, odtwarzacza multimediów Cast albo odbiornika DLNA.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 9. Stopka -->
+<footer class="site-foot">
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <svg class="lockup foot-lockup" viewBox="0 0 715 127" role="img" aria-label="AirLinx" focusable="false"><use href="#lockup"/></svg>
+      <p class="foot-line">Obraz w locie.</p>
+    </div>
+    <nav class="foot-nav" aria-label="Stopka">
+      <ul>
+        <li><a href="#instalacja">Instalacja</a></li>
+        <li><a href="#wymagania">Wymagania</a></li>
+        <li><a href="#faq">Pytania</a></li>
+        <li data-repo-item hidden><a href="#top" data-repo-link>Kod źródłowy</a></li>
+        <li><a href="regulamin.html">Regulamin</a></li>
+        <li><a href="prywatnosc.html">Prywatność</a></li>
+      </ul>
+    </nav>
+    <p class="foot-status num">
+      <svg class="mark mini-mark" viewBox="20 64 216 128" aria-hidden="true" focusable="false">
+        <path d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/>
+        <path d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/>
+        <path class="mk-d" d="M113.71 128 128 103.25 142.29 128 128 152.75 113.71 128Z"/>
+      </svg>
+      <span>Zmierzone na Samsung S85F · 1080p · 60 kl./s · 111 ms</span>
+    </p>
+    <p class="foot-legal">AirLinx jest niezależnym projektem i nie jest powiązany z Google ani z Samsungiem. Google Cast jest znakiem towarowym Google LLC.</p>
+  </div>
+</footer>
+
+</body>
+</html>

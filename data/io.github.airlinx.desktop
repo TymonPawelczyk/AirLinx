@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=AirLinx
+GenericName=Udostępnianie ekranu na TV
+Comment=Wyślij ekran i multimedia na telewizor w sieci domowej
+Icon=airlinx
+Exec=@EXEC@
+Terminal=false
+Categories=AudioVideo;Video;
+Keywords=TV;cast;ekran;telewizor;DLNA;mirror;Chromecast;
+StartupNotify=true
+StartupWMClass=airlinx
+Actions=hidden;
+
+[Desktop Action hidden]
+Name=Uruchom w zasobniku
+Exec=@EXEC@ --no-window

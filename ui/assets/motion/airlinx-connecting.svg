@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Łączenie…"><title>AirLinx — łączenie</title><style>
+.ax-c{fill:#F3F2EF}
+.ax-f{fill:#3DF2A0;transform-box:fill-box;transform-origin:center;animation:ax-fly 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.ax-l{animation:ax-pl 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+.ax-r{animation:ax-pr 1.6s cubic-bezier(.65,0,.35,1) infinite;}
+@keyframes ax-fly{0%{transform:translateX(-39.29px) scale(.3);opacity:0}20%{opacity:1}
+ 50%{transform:translateX(0) scale(1);opacity:1}80%{opacity:1}100%{transform:translateX(39.29px) scale(.3);opacity:0}}
+@keyframes ax-pl{0%,100%{transform:translateX(0)}12%{transform:translateX(-3px)}30%{transform:translateX(0)}}
+@keyframes ax-pr{0%,62%,100%{transform:translateX(0)}88%{transform:translateX(3px)}}
+@keyframes ax-br{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){
+ .ax-f{animation:ax-br 2.4s ease-in-out infinite;transform:none}
+ .ax-l,.ax-r{animation:none}
+}</style><path class="ax-c ax-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="ax-c ax-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="ax-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg>

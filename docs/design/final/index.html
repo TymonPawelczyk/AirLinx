@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="pl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirLinx</title>
+<link rel="stylesheet" href="brand-tokens.css">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ============ Sprite: ikony, sceny, gradienty ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1630"/><stop offset=".42" stop-color="#22346a"/><stop offset=".7" stop-color="#b4566c"/><stop offset=".86" stop-color="#ef975a"/><stop offset="1" stop-color="#f7c47c"/>
+    </linearGradient>
+    <linearGradient id="g-sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7fc6d6"/><stop offset=".38" stop-color="#2a93ad"/><stop offset=".4" stop-color="#11688a"/><stop offset="1" stop-color="#062a40"/>
+    </linearGradient>
+    <linearGradient id="g-wall2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f3b36"/><stop offset=".6" stop-color="#2f6157"/><stop offset="1" stop-color="#b9c98f"/>
+    </linearGradient>
+    <radialGradient id="g-planet" cx=".5" cy=".08" r=".9">
+      <stop offset="0" stop-color="#3a4f63"/><stop offset=".25" stop-color="#16222e"/><stop offset="1" stop-color="#05080b"/>
+    </radialGradient>
+    <radialGradient id="g-atmo" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffb867" stop-opacity=".9"/><stop offset=".5" stop-color="#e0703a" stop-opacity=".35"/><stop offset="1" stop-color="#e0703a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="g-dune" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3c58a"/><stop offset=".5" stop-color="#d68a48"/><stop offset="1" stop-color="#6b3a1c"/>
+    </linearGradient>
+    <linearGradient id="g-music" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b1d52"/><stop offset="1" stop-color="#c2477a"/>
+    </linearGradient>
+    <linearGradient id="g-tatry" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9cc3e6"/><stop offset="1" stop-color="#e6eef5"/>
+    </linearGradient>
+    <filter id="f-rim" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+
+  <!-- ikony 24×24, kreska 1.5 -->
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/></symbol>
+  <symbol id="i-window" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M6 7h.01M8.5 7h.01"/></symbol>
+  <symbol id="i-cast" viewBox="0 0 24 24"><path d="M2.5 8V6.5a2 2 0 0 1 2-2h15a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14"/><path d="M2.5 12.5a7 7 0 0 1 7 7M2.5 16a3.5 3.5 0 0 1 3.5 3.5"/><path d="M2.5 19.5h.01"/></symbol>
+  <symbol id="i-dlna" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18.5" r="2"/><circle cx="19" cy="18.5" r="2"/><path d="M11 6.8 6 16.7M13 6.8l5 9.9M7 18.5h10"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8h4.5M3 16h4.5M16.5 8H21M16.5 16H21M3 12h18"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2"/><circle cx="9" cy="9.5" r="1.8"/><path d="m21 15-4.5-4.5L6 20.5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13.5a4.5 4.5 0 0 0 6.6.4l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.4 1.4"/><path d="M14 10.5a4.5 4.5 0 0 0-6.6-.4l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.4-1.4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.3-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5.5 6v12l9-6-9-6ZM18.5 6v12"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18.5 6v12l-9-6 9-6ZM5.5 6v12"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6.5 9H3.5v6h3L11 19V5Z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.5 6a8.5 8.5 0 0 1 0 12"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-4.8"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.5v4.2h-4.2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.3 2.8 17.5A2 2 0 0 0 4.5 20.5h15a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+  <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M8.5 16.4a5 5 0 0 1 6.2-.6M5 12.9a10 10 0 0 1 5-2.7M14.8 10.4a10 10 0 0 1 4.2 2.5M2 9.3a15 15 0 0 1 4.3-2.8M10.5 5.1a15 15 0 0 1 11.5 4.2"/><path d="M12 20h.01"/></symbol>
+  <symbol id="i-remote" viewBox="0 0 24 24"><rect x="7.5" y="2.5" width="9" height="19" rx="4.5"/><circle cx="12" cy="8" r="1.8"/><path d="M10.5 13h.01M13.5 13h.01M10.5 16h.01M13.5 16h.01"/></symbol>
+  <symbol id="i-subs" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 13.5h4M13.5 13.5H17M7 16h10"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h1.5M7 8v8M10.5 5v14M14 9v6M17.5 7v10M21 12h-.5"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2.5 4 13.5h7l-1 8 9-11h-7l1-8Z"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 15.5v2a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-2"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Z"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx=".8"/><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3"/></symbol>
+  <symbol id="i-gen" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-eq" viewBox="0 0 24 24"><path d="M6 18V11M10 18V6M14 18v-9M18 18v-5"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24"><path d="m5 3.5 13.5 7-6 1.5-3 6-4.5-14.5Z"/></symbol>
+
+
+  <!-- ikony zasobnika: marka C, symboliczne (docs/brand/final/icons/hicolor) -->
+  <symbol id="t-idle-16" viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3Z"/></symbol>
+  <symbol id="t-idle-22" viewBox="0 0 22 22"><path d="M1.75 4H4.25L7.75 11L4.25 18H1.75L5.25 11ZM20.25 4 16.75 11 20.25 18H17.75L14.25 11L17.75 4Z"/></symbol>
+  <symbol id="t-idle-24" viewBox="0 0 24 24"><path d="M1.5 4H4.5L8.5 12L4.5 20H1.5L5.5 12ZM22.5 4 18.5 12 22.5 20H19.5L15.5 12L19.5 4Z"/></symbol>
+  <symbol id="t-streaming-16" viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3ZM6.5 8 8 5 9.5 8 8 11Z"/></symbol>
+  <symbol id="t-streaming-22" viewBox="0 0 22 22"><path d="M1.75 4H4.25L7.75 11L4.25 18H1.75L5.25 11ZM20.25 4 16.75 11 20.25 18H17.75L14.25 11L17.75 4ZM9 11 11 7 13 11 11 15Z"/></symbol>
+  <symbol id="t-streaming-24" viewBox="0 0 24 24"><path d="M1.5 4H4.5L8.5 12L4.5 20H1.5L5.5 12ZM22.5 4 18.5 12 22.5 20H19.5L15.5 12L19.5 4ZM10 12 12 8 14 12 12 16Z"/></symbol>
+  <symbol id="t-error-16" viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3ZM7 3H9V9.5H7ZM7 11H9V13H7Z"/></symbol>
+  <symbol id="t-error-22" viewBox="0 0 22 22"><path d="M1.75 4H4.25L7.75 11L4.25 18H1.75L5.25 11ZM20.25 4 16.75 11 20.25 18H17.75L14.25 11L17.75 4ZM10 4H12V14H10ZM10 16H12V18H10Z"/></symbol>
+  <symbol id="t-error-24" viewBox="0 0 24 24"><path d="M1.5 4H4.5L8.5 12L4.5 20H1.5L5.5 12ZM22.5 4 18.5 12 22.5 20H19.5L15.5 12L19.5 4ZM10.75 4H13.25V15.5H10.75ZM10.75 17.5H13.25V20H10.75Z"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16.1a5 5 0 0 1 7 0M12 19.5h.01"/></symbol>
+
+  <!-- scena: pulpit DP-1 (przeglądarka z filmem + terminal) -->
+  <symbol id="scene-desktop" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+    <rect width="1600" height="900" fill="url(#g-sky)"/>
+    <circle cx="1270" cy="690" r="86" fill="#ffd9a0"/>
+    <path d="M0 720 180 612l140 70 150-122 170 130 180-90 180 100 180-80 180 80 240-90V900H0Z" fill="#43305c"/>
+    <path d="M0 792 220 702l200 70 220-82 220 92 220-62 220 82 300-72V900H0Z" fill="#171a33"/>
+    <g>
+      <rect x="200" y="84" width="1010" height="640" rx="16" fill="#15171c"/>
+      <path d="M216 84h978a16 16 0 0 1 16 16v34H200v-34a16 16 0 0 1 16-16Z" fill="#1f2229"/>
+      <rect x="226" y="98" width="230" height="26" rx="8" fill="#2c3039"/>
+      <rect x="240" y="108" width="120" height="7" rx="3.5" fill="#9aa0ab"/>
+      <rect x="474" y="98" width="560" height="26" rx="13" fill="#111317"/>
+      <rect x="494" y="108" width="210" height="7" rx="3.5" fill="#5d636e"/>
+      <circle cx="1148" cy="111" r="6" fill="#3a3e48"/><circle cx="1170" cy="111" r="6" fill="#3a3e48"/><circle cx="1192" cy="111" r="6" fill="#3a3e48"/>
+      <rect x="220" y="146" width="970" height="470" rx="8" fill="url(#g-sea)"/>
+      <path d="M220 330c80-10 150 10 230 0s170-14 250 0 170 12 260 0 150-10 230 2" stroke="#bfe8f0" stroke-opacity=".35" stroke-width="3" fill="none"/>
+      <path d="M220 410c90-14 170 12 260 0s180-16 270 0 170 14 260 0 110-8 180 0" stroke="#bfe8f0" stroke-opacity=".22" stroke-width="3" fill="none"/>
+      <path d="M220 490c100-12 190 10 290 0s170-12 270 0 190 10 410-4" stroke="#bfe8f0" stroke-opacity=".14" stroke-width="3" fill="none"/>
+      <path d="M900 616V300l60-30 40 40 50-10 60 60 80 20V616Z" fill="#0b2738"/>
+      <path d="M560 360h50l-25-40Z" fill="#f2f2f0" opacity=".9"/>
+      <rect x="240" y="590" width="930" height="4" rx="2" fill="#fff" fill-opacity=".28"/>
+      <rect x="240" y="590" width="390" height="4" rx="2" fill="#fff"/>
+      <circle cx="630" cy="592" r="7" fill="#fff"/>
+      <rect x="220" y="636" width="520" height="16" rx="5" fill="#e9e9e7"/>
+      <rect x="220" y="664" width="300" height="11" rx="5" fill="#7c828d"/>
+      <circle cx="232" cy="702" r="12" fill="#3a3e48"/><rect x="254" y="696" width="160" height="11" rx="5" fill="#5d636e"/>
+    </g>
+    <g>
+      <rect x="1100" y="390" width="420" height="300" rx="14" fill="#0b0d10" fill-opacity=".97"/>
+      <rect x="1100" y="390" width="420" height="34" rx="14" fill="#171a1f"/>
+      <rect x="1100" y="410" width="420" height="14" fill="#171a1f"/>
+      <g fill="#86d69a"><rect x="1124" y="446" width="60" height="9" rx="3"/><rect x="1124" y="506" width="60" height="9" rx="3"/><rect x="1124" y="566" width="60" height="9" rx="3"/></g>
+      <g fill="#c9ccd2" fill-opacity=".75"><rect x="1194" y="446" width="200" height="9" rx="3"/><rect x="1124" y="466" width="300" height="9" rx="3"/><rect x="1124" y="486" width="240" height="9" rx="3"/><rect x="1194" y="506" width="140" height="9" rx="3"/><rect x="1124" y="526" width="330" height="9" rx="3"/><rect x="1124" y="546" width="180" height="9" rx="3"/><rect x="1194" y="566" width="20" height="12" rx="1" fill="#f3f2ef"/></g>
+    </g>
+    <rect y="850" width="1600" height="50" fill="#080a12" fill-opacity=".86"/>
+    <g fill="#f3f2ef" fill-opacity=".55"><rect x="700" y="862" width="26" height="26" rx="7"/><rect x="742" y="862" width="26" height="26" rx="7" fill="#ef975a" fill-opacity=".9"/><rect x="784" y="862" width="26" height="26" rx="7"/><rect x="826" y="862" width="26" height="26" rx="7"/><rect x="1470" y="868" width="100" height="12" rx="5"/></g>
+  </symbol>
+
+  <!-- scena: HDMI-1 (arkusz kalkulacyjny) -->
+  <symbol id="scene-desk2" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+    <rect width="1600" height="900" fill="url(#g-wall2)"/>
+    <rect x="160" y="110" width="1280" height="680" rx="14" fill="#fbfbfa"/>
+    <rect x="160" y="110" width="1280" height="70" rx="14" fill="#2f7a4d"/>
+    <rect x="160" y="160" width="1280" height="20" fill="#2f7a4d"/>
+    <g stroke="#e3e3e0" stroke-width="2">
+      <path d="M160 240h1280M160 290h1280M160 340h1280M160 390h1280M160 440h1280M160 490h1280M160 540h1280M160 590h1280M160 640h1280M160 690h1280M160 740h1280"/>
+      <path d="M260 190v600M480 190v600M700 190v600M920 190v600M1140 190v600"/>
+    </g>
+    <g fill="#8d918f"><rect x="290" y="258" width="120" height="14" rx="4"/><rect x="290" y="308" width="160" height="14" rx="4"/><rect x="290" y="358" width="100" height="14" rx="4"/><rect x="510" y="258" width="80" height="14" rx="4"/><rect x="510" y="308" width="120" height="14" rx="4"/><rect x="730" y="258" width="140" height="14" rx="4"/><rect x="730" y="358" width="90" height="14" rx="4"/></g>
+    <rect x="950" y="420" width="420" height="300" rx="10" fill="#eef4ef"/>
+    <g fill="#2f7a4d"><rect x="990" y="600" width="40" height="90"/><rect x="1050" y="540" width="40" height="150"/><rect x="1110" y="580" width="40" height="110"/><rect x="1170" y="500" width="40" height="190"/><rect x="1230" y="560" width="40" height="130"/></g>
+  </symbol>
+
+  <!-- scena: film (kadr 2,39:1 z czarnymi pasami) -->
+  <symbol id="scene-movie" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+    <rect width="1600" height="900" fill="#000"/>
+    <g fill="#fff">
+      <circle cx="140" cy="190" r="1.6" opacity=".7"/><circle cx="320" cy="260" r="1.2" opacity=".5"/><circle cx="460" cy="160" r="2" opacity=".8"/><circle cx="610" cy="320" r="1.2" opacity=".4"/><circle cx="760" cy="200" r="1.5" opacity=".6"/><circle cx="930" cy="280" r="1.1" opacity=".5"/><circle cx="1060" cy="170" r="1.8" opacity=".7"/><circle cx="1240" cy="240" r="1.2" opacity=".5"/><circle cx="1400" cy="180" r="1.6" opacity=".6"/><circle cx="1500" cy="330" r="1.1" opacity=".4"/><circle cx="220" cy="420" r="1.1" opacity=".4"/><circle cx="1330" cy="400" r="1.3" opacity=".5"/>
+    </g>
+    <ellipse cx="800" cy="612" rx="760" ry="70" fill="url(#g-atmo)"/>
+    <circle cx="800" cy="1660" r="1050" fill="url(#g-planet)"/>
+    <circle cx="800" cy="1660" r="1050" fill="none" stroke="#ffcf8a" stroke-width="7" filter="url(#f-rim)"/>
+    <circle cx="800" cy="1660" r="1050" fill="none" stroke="#fff3dc" stroke-width="1.5" stroke-opacity=".8"/>
+    <circle cx="1150" cy="600" r="16" fill="#fff"/>
+    <ellipse cx="1150" cy="600" rx="430" ry="2.2" fill="#ffe8c4" opacity=".85"/>
+    <ellipse cx="1150" cy="600" rx="60" ry="40" fill="#ffd9a0" opacity=".25"/>
+    <text x="800" y="752" text-anchor="middle" font-family="Inter, sans-serif" font-size="30" font-weight="500" fill="#fff" fill-opacity=".95" style="paint-order:stroke" stroke="#000" stroke-opacity=".6" stroke-width="5">Mamy jeszcze czas. Wystarczy go dobrze wykorzystać.</text>
+    <rect width="1600" height="115" fill="#000"/>
+    <rect y="785" width="1600" height="115" fill="#000"/>
+  </symbol>
+
+  <!-- miniatury okien 160×90 -->
+  <symbol id="w-firefox" viewBox="0 0 160 90"><rect width="160" height="90" fill="#15171c"/><rect width="160" height="12" fill="#1f2229"/><rect x="4" y="3" width="34" height="6" rx="2" fill="#2c3039"/><rect x="44" y="3" width="80" height="6" rx="3" fill="#0f1114"/><rect x="6" y="16" width="148" height="56" rx="2" fill="url(#g-sea)"/><path d="M110 72V44l8-4 6 6 8-2 8 8 14 3v17Z" fill="#0b2738"/><rect x="6" y="76" width="80" height="4" rx="2" fill="#e9e9e7"/><rect x="6" y="83" width="50" height="3" rx="1.5" fill="#6b717c"/></symbol>
+  <symbol id="w-code" viewBox="0 0 160 90"><rect width="160" height="90" fill="#1d1f24"/><rect width="10" height="90" fill="#26292f"/><rect x="10" width="36" height="90" fill="#22252a"/><g fill="#6b717c"><rect x="14" y="10" width="24" height="3" rx="1"/><rect x="14" y="17" width="20" height="3" rx="1"/><rect x="14" y="24" width="26" height="3" rx="1"/><rect x="14" y="31" width="18" height="3" rx="1"/></g><g><rect x="54" y="10" width="30" height="3" rx="1" fill="#c792ea"/><rect x="88" y="10" width="40" height="3" rx="1" fill="#82aaff"/><rect x="60" y="18" width="52" height="3" rx="1" fill="#c3e88d"/><rect x="60" y="26" width="34" height="3" rx="1" fill="#f78c6c"/><rect x="98" y="26" width="28" height="3" rx="1" fill="#89ddff"/><rect x="66" y="34" width="60" height="3" rx="1" fill="#c9ccd2" fill-opacity=".6"/><rect x="66" y="42" width="44" height="3" rx="1" fill="#c3e88d"/><rect x="60" y="50" width="22" height="3" rx="1" fill="#c792ea"/><rect x="54" y="58" width="10" height="3" rx="1" fill="#c9ccd2" fill-opacity=".6"/><rect x="54" y="70" width="40" height="3" rx="1" fill="#82aaff"/><rect x="98" y="70" width="36" height="3" rx="1" fill="#f78c6c"/></g><rect y="84" width="160" height="6" fill="#2e6fd1"/></symbol>
+  <symbol id="w-spotify" viewBox="0 0 160 90"><rect width="160" height="90" fill="#111"/><rect width="34" height="78" fill="#000"/><g fill="#5d636e"><rect x="6" y="10" width="22" height="3" rx="1"/><rect x="6" y="17" width="18" height="3" rx="1"/><rect x="6" y="24" width="20" height="3" rx="1"/></g><rect x="40" y="8" width="112" height="26" rx="3" fill="url(#g-music)"/><rect x="40" y="40" width="24" height="24" rx="2" fill="#d68a48"/><rect x="69" y="40" width="24" height="24" rx="2" fill="#2a93ad"/><rect x="98" y="40" width="24" height="24" rx="2" fill="#7a5bd6"/><rect x="127" y="40" width="24" height="24" rx="2" fill="#c2477a"/><rect y="78" width="160" height="12" fill="#1a1a1a"/><rect x="60" y="83" width="40" height="2" rx="1" fill="#fff"/></symbol>
+  <symbol id="w-files" viewBox="0 0 160 90"><rect width="160" height="90" fill="#f4f4f2"/><rect width="160" height="12" fill="#e7e7e4"/><rect width="34" height="90" y="12" fill="#ececea"/><g fill="#b9bcbf"><rect x="6" y="20" width="22" height="3" rx="1"/><rect x="6" y="27" width="18" height="3" rx="1"/><rect x="6" y="34" width="20" height="3" rx="1"/></g><g fill="#5f8fd6"><rect x="44" y="22" width="20" height="15" rx="2"/><rect x="74" y="22" width="20" height="15" rx="2"/><rect x="104" y="22" width="20" height="15" rx="2"/><rect x="134" y="22" width="20" height="15" rx="2"/><rect x="44" y="50" width="20" height="15" rx="2"/></g><g fill="#e2a64c"><rect x="74" y="50" width="20" height="15" rx="2"/><rect x="104" y="50" width="20" height="15" rx="2"/></g><g fill="#9a9da1"><rect x="46" y="41" width="16" height="2" rx="1"/><rect x="76" y="41" width="16" height="2" rx="1"/><rect x="106" y="41" width="16" height="2" rx="1"/><rect x="136" y="41" width="16" height="2" rx="1"/><rect x="46" y="69" width="16" height="2" rx="1"/><rect x="76" y="69" width="16" height="2" rx="1"/><rect x="106" y="69" width="16" height="2" rx="1"/></g></symbol>
+  <symbol id="w-term" viewBox="0 0 160 90"><rect width="160" height="90" fill="#0b0d10"/><rect width="160" height="11" fill="#171a1f"/><g fill="#86d69a"><rect x="8" y="18" width="22" height="3" rx="1"/><rect x="8" y="42" width="22" height="3" rx="1"/><rect x="8" y="66" width="22" height="3" rx="1"/></g><g fill="#c9ccd2" fill-opacity=".7"><rect x="34" y="18" width="70" height="3" rx="1"/><rect x="8" y="26" width="120" height="3" rx="1"/><rect x="8" y="34" width="96" height="3" rx="1"/><rect x="34" y="42" width="52" height="3" rx="1"/><rect x="8" y="50" width="134" height="3" rx="1"/><rect x="8" y="58" width="80" height="3" rx="1"/><rect x="34" y="65" width="6" height="5" fill="#f3f2ef" fill-opacity="1"/></g></symbol>
+  <symbol id="w-calc" viewBox="0 0 160 90"><rect width="160" height="90" fill="#fbfbfa"/><rect width="160" height="14" fill="#2f7a4d"/><g stroke="#e3e3e0"><path d="M0 26h160M0 36h160M0 46h160M0 56h160M0 66h160M0 76h160M24 14v76M64 14v76M104 14v76M144 14v76"/></g><g fill="#8d918f"><rect x="28" y="29" width="24" height="4" rx="1"/><rect x="28" y="39" width="30" height="4" rx="1"/><rect x="68" y="29" width="18" height="4" rx="1"/><rect x="68" y="49" width="26" height="4" rx="1"/><rect x="108" y="39" width="22" height="4" rx="1"/></g><rect x="104" y="56" width="40" height="20" fill="#2f7a4d" fill-opacity=".14"/></symbol>
+
+  <!-- miniatury kolejki 64×36 -->
+  <symbol id="q-dune" viewBox="0 0 64 36" preserveAspectRatio="xMidYMid slice"><rect width="64" height="36" fill="url(#g-dune)"/><path d="M0 26c12-8 22-8 34-2s20 4 30-2v14H0Z" fill="#7a421f"/><path d="M0 31c14-5 30-4 44 0s14 2 20 0v5H0Z" fill="#4b2610"/><circle cx="46" cy="10" r="4" fill="#fff4dd"/></symbol>
+  <symbol id="q-sea" viewBox="0 0 64 36" preserveAspectRatio="xMidYMid slice"><rect width="64" height="36" fill="url(#g-sea)"/><path d="M38 36V18l5-3 4 3 5-1 12 6v13Z" fill="#c8b48a"/><path d="M0 22c10-2 20 2 30 0" stroke="#fff" stroke-opacity=".4"/></symbol>
+  <symbol id="q-tatry" viewBox="0 0 64 36" preserveAspectRatio="xMidYMid slice"><rect width="64" height="36" fill="url(#g-tatry)"/><path d="M0 30 14 14l8 8 12-16 14 16 6-5 10 13v6H0Z" fill="#4a5a6e"/><path d="M34 6l5 6-3 1-2-2-3 3-3-1Z" fill="#fff"/><path d="M0 32c20-3 40-3 64 0v4H0Z" fill="#2f4a3a"/></symbol>
+  <symbol id="q-music" viewBox="0 0 64 36" preserveAspectRatio="xMidYMid slice"><rect width="64" height="36" fill="url(#g-music)"/><circle cx="32" cy="18" r="11" fill="none" stroke="#fff" stroke-opacity=".35"/><circle cx="32" cy="18" r="3" fill="#fff" fill-opacity=".8"/></symbol>
+</svg>
+
+<div class="app" data-screen="discovery" data-disc="found" data-mode="ekran" data-session="idle" data-media="empty" data-paused="false">
+
+  <!-- ============ Pasek okna ============ -->
+  <header class="bar">
+    <div class="bar-left">
+      <!-- Slot logo: lockup C „Styk” (assets/brand/lockup-horizontal-*.svg). Klasy l-ink / l-accent przejmują kolory z tokenów. -->
+      <svg id="logo" viewBox="52 52 717 129" role="img" aria-label="AirLinx"><path class="l-ink" d="M53.78 179.36 85.53 124.36 53.78 69.36H84.58L116.33 124.36L84.58 179.36Z"/><path class="l-ink" d="M249.5 179.36 217.74 124.36 249.5 69.36H218.69L186.94 124.36L218.69 179.36Z"/><path class="l-accent" d="M138.19 124.36 151.64 101.07 165.08 124.36 151.64 147.65 138.19 124.36Z"/><path class="l-ink" d="M305.18 159.7Q295.01 159.7 289.06 153.81Q283.11 147.92 283.11 138.37Q283.11 128.08 290.42 122.13Q297.74 116.17 311.01 116.17H324.4V111.83Q324.4 107.99 321.73 105.82Q319.07 103.65 314.11 103.65Q309.4 103.65 306.61 105.51Q303.82 107.37 303.57 110.97H285.96Q286.33 100.92 293.9 94.97Q301.46 89.02 314.36 89.02Q327.87 89.02 335.44 95.22Q343 101.42 343 112.58V158.46H325.02V146.68Q323.78 152.75 318.51 156.23Q313.24 159.7 305.18 159.7ZM633.41 158.46V90.26H651.39V102.66Q652.88 96.46 657.77 92.74Q662.67 89.02 669.74 89.02Q679.66 89.02 685.67 95.96Q691.69 102.91 691.69 114.44V158.46H673.09V116.3Q673.09 110.97 670.3 108.05Q667.51 105.14 662.55 105.14Q657.59 105.14 654.8 108.05Q652.01 110.97 652.01 116.3V158.46ZM699.13 158.46 722.69 123.12 700.74 90.26H721.45L729.88 103.9Q730.87 105.51 731.74 107.49Q732.61 109.48 733.1 110.72Q733.6 109.48 734.47 107.49Q735.34 105.51 736.33 103.9L744.76 90.26H765.47L743.64 123.12L767.08 158.46H746.37L736.45 142.34Q735.46 140.6 734.53 138.68Q733.6 136.76 733.1 135.52Q732.61 136.76 731.74 138.68Q730.87 140.6 729.88 142.34L719.84 158.46ZM535.32 158.46Q528.13 158.46 522.68 155.42Q517.22 152.38 514.18 146.93Q511.14 141.47 511.14 134.28V84.68H489.44V67.94H529.74V133.66Q529.74 137.25 531.79 139.49Q533.84 141.72 537.18 141.72H556.4V158.46ZM354.9 158.46V141.72H377.47V107H357.38V90.26H396.07V141.72H415.66V158.46ZM564.46 158.46V141.72H587.03V107H566.94V90.26H605.63V141.72H625.22V158.46ZM426.33 158.46V90.26H444.31V103.15Q445.8 96.58 450.82 92.8Q455.84 89.02 463.4 89.02Q473.7 89.02 479.52 95.96Q485.35 102.91 485.35 115.06V121.88H466.75V116.3Q466.75 110.97 463.9 108.05Q461.05 105.14 455.84 105.14Q450.63 105.14 447.78 108.42Q444.93 111.71 444.93 117.79V158.46ZM311.75 144.82Q317.58 144.82 320.99 141.9Q324.4 138.99 324.4 134.28V127.33H311.38Q306.42 127.33 303.75 129.75Q301.09 132.17 301.09 136.01Q301.09 139.86 303.88 142.34Q306.67 144.82 311.75 144.82ZM584.69 67.32 596.33 53.78 607.98 67.32 596.33 80.86ZM375.13 67.32 386.77 53.78 398.42 67.32 386.77 80.86Z"/></svg>
+      <button class="back" data-act="back"><svg class="i"><use href="#i-left"/></svg>Ustawienia</button>
+    </div>
+
+    <div class="modes" role="group" aria-label="Tryb">
+      <span class="modes-ind" aria-hidden="true"></span>
+      <button data-mode-btn="ekran" aria-pressed="true"><svg class="i i-s"><use href="#i-monitor"/></svg>Ekran</button>
+      <button data-mode-btn="media" aria-pressed="false"><svg class="i i-s"><use href="#i-film"/></svg>Multimedia</button>
+    </div>
+
+    <div class="bar-right">
+      <button class="tv-pill" data-act="devices" aria-haspopup="menu" aria-expanded="false" aria-label="Telewizor: Salon">
+        <span class="dot" id="tv-dot"></span>
+        <span class="name">Salon</span>
+        <span class="status" id="tv-status">Gotowy</span>
+        <svg class="i i-s"><use href="#i-down"/></svg>
+      </button>
+      <button class="icon-btn" data-act="settings" aria-label="Ustawienia" title="Ustawienia"><svg class="i"><use href="#i-sliders"/></svg></button>
+      <div class="win-ctl">
+        <button aria-label="Minimalizuj" tabindex="-1"><svg class="i"><use href="#i-min"/></svg></button>
+        <button aria-label="Maksymalizuj" tabindex="-1"><svg class="i"><use href="#i-max"/></svg></button>
+        <button aria-label="Zamknij do zasobnika" tabindex="-1"><svg class="i"><use href="#i-x"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main style="display:contents">
+
+  <!-- ============ Odkrywanie / brak TV ============ -->
+  <section class="view v-discovery" aria-labelledby="disc-title">
+    <div class="disc">
+      <div class="radar" aria-hidden="true">
+        <svg class="rings" viewBox="0 0 220 216"><circle cx="110" cy="108" r="100"/><circle cx="110" cy="108" r="100"/><circle cx="110" cy="108" r="100"/></svg>
+        <div class="core"><svg class="mark nf-only" viewBox="0 0 24 24" style="color:var(--error)"><use href="#t-error-24"/></svg><svg class="mark disc-only" viewBox="0 52 256 152" aria-hidden="true"><path class="l-ink" d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/><path class="l-ink" d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/><path class="l-accent" d="M113.71 128 128 103.25 142.29 128 128 152.75 113.71 128Z"/></svg></div>
+      </div>
+
+      <div class="disc-only" style="display:contents">
+        <h1 id="disc-title" class="t-display"><span class="t-scan">Szukam telewizorów…</span><span class="t-found">Wybierz telewizor</span></h1>
+        <p class="lede">Telewizor musi być włączony i podłączony do tej samej sieci co komputer. Szukam w sieci <b style="font-weight:500;color:var(--text)">Dom_5G</b>.</p>
+
+        <div class="found" role="list" aria-label="Znalezione telewizory">
+          <div class="found-head"><span id="found-count">Znalezione: 2</span><span class="scan-note"><span class="dot" data-s="busy"></span>Wciąż szukam</span></div>
+          <button class="tv-row" role="listitem" data-act="pick-tv" data-tv="Salon">
+            <span class="tv-ico"><svg class="i i-l"><use href="#i-tv"/></svg></span>
+            <span>
+              <span class="t-name">Salon</span>
+              <span class="t-meta">Samsung S85F <span class="mono faint">192.168.0.20</span></span>
+            </span>
+            <span class="caps" aria-label="Obsługuje: Google Cast, DLNA, przeglądarkę, 4K HDR">
+              <span class="cap" title="Google Cast"><svg class="i i-s"><use href="#i-cast"/></svg></span>
+              <span class="cap" title="DLNA"><svg class="i i-s"><use href="#i-dlna"/></svg></span>
+              <span class="cap" title="Przeglądarka TV"><svg class="i i-s"><use href="#i-globe"/></svg></span>
+              <span class="badge">4K HDR</span>
+            </span>
+            <span class="go">Połącz</span>
+          </button>
+          <button class="tv-row second" role="listitem" data-act="pick-tv" data-tv="Sypialnia">
+            <span class="tv-ico"><svg class="i i-l"><use href="#i-tv"/></svg></span>
+            <span>
+              <span class="t-name">Sypialnia</span>
+              <span class="t-meta">LG OLED55C3 <span class="mono faint">192.168.0.23</span></span>
+            </span>
+            <span class="caps" aria-label="Obsługuje: DLNA, przeglądarkę, 4K HDR. Bez Google Cast">
+              <span class="cap off" title="Bez Google Cast"><svg class="i i-s"><use href="#i-cast"/></svg></span>
+              <span class="cap" title="DLNA"><svg class="i i-s"><use href="#i-dlna"/></svg></span>
+              <span class="cap" title="Przeglądarka TV"><svg class="i i-s"><use href="#i-globe"/></svg></span>
+              <span class="badge">4K HDR</span>
+            </span>
+            <span class="go">Połącz</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="nf-only" style="display:contents">
+        <h1 class="t-display">Nie widzę telewizora</h1>
+        <p class="lede">Przez 30 sekund nic nie odpowiedziało w sieci Dom_5G. Sprawdź trzy rzeczy i poszukaj ponownie.</p>
+        <ul class="checklist">
+          <li><svg class="i"><use href="#i-check-circle"/></svg>Telewizor jest włączony, a nie w trybie czuwania.</li>
+          <li><svg class="i"><use href="#i-check-circle"/></svg>Komputer i telewizor są w tej samej sieci Wi-Fi lub LAN.</li>
+          <li><svg class="i"><use href="#i-check-circle"/></svg>Zapora sieciowa przepuszcza mDNS (port UDP 5353).</li>
+        </ul>
+        <div class="disc-actions">
+          <button class="btn btn-lg btn-accent" data-act="rescan"><svg class="i i-s"><use href="#i-refresh"/></svg>Szukaj ponownie</button>
+        </div>
+      </div>
+
+      <div class="manual">
+        <button class="link-btn" data-act="manual" aria-expanded="false" aria-controls="manual-form"><svg class="i i-s"><use href="#i-plus"/></svg>Dodaj ręcznie (IP)</button>
+        <form id="manual-form" hidden onsubmit="return false">
+          <label class="field"><span class="sr">Adres IP telewizora</span><input class="mono" style="font-size:14px" placeholder="192.168.0.20" value="192.168.0." inputmode="decimal"></label>
+          <button class="btn btn-lg" data-act="pick-tv" data-tv="Salon">Połącz</button>
+        </form>
+        <span class="hint" id="manual-hint" hidden>Adres znajdziesz w telewizorze: Ustawienia, Ogólne, Sieć, Stan sieci.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Praca: scena + szyna ============ -->
+  <section class="view v-work">
+    <div class="stage">
+      <div class="stage-inner">
+        <div class="tv" id="tv">
+          <div class="glow g-desktop" aria-hidden="true"><svg viewBox="0 0 1600 900" preserveAspectRatio="none"><use href="#scene-desktop"/></svg></div>
+          <div class="glow g-movie" aria-hidden="true"><svg viewBox="0 0 1600 900" preserveAspectRatio="none"><use href="#scene-movie"/></svg></div>
+          <div class="glow drag-glow" aria-hidden="true"></div>
+          <div class="tv-frame">
+            <div class="screen" id="screen" role="img" aria-label="Podgląd ekranu telewizora">
+              <div class="layer l-preview"><svg class="scene" viewBox="0 0 1600 900"><use href="#scene-desktop" id="preview-use"/></svg></div>
+              <div class="l-preview-tag"><svg class="i i-s"><use href="#i-monitor"/></svg>Podgląd, telewizor jeszcze nic nie pokazuje</div>
+              <div class="layer l-live"><div class="live-chip"><span class="tally"></span>Na żywo <span class="time" id="live-time">00:12:47</span></div></div>
+              <div class="layer l-center l-connecting"><div><svg class="ax-connecting" viewBox="0 0 256 256" aria-hidden="true"><path class="ax-c ax-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="ax-c ax-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="ax-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg><div class="screen-msg">Łączenie z Salon…</div></div></div>
+              <div class="layer l-center l-permission">
+                <div class="tv-prompt" aria-hidden="true">
+                  <b>Zezwolić na połączenie?</b>
+                  <p>Urządzenie „AirLinx (zorin-pc)” chce wyświetlać obraz na tym telewizorze.</p>
+                  <div class="opts"><span>Zezwól</span><span>Odmów</span></div>
+                </div>
+              </div>
+              <div class="layer l-center l-lost"><div><svg class="ax-connecting" viewBox="0 0 256 256" aria-hidden="true"><path class="ax-c ax-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="ax-c ax-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="ax-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg><div class="screen-msg">Łączę ponownie…</div></div></div>
+              <div class="layer l-movie"><svg class="scene" viewBox="0 0 1600 900"><use href="#scene-movie"/></svg></div>
+              <div class="layer dropzone l-drop" id="dropzone">
+                <span class="dz-edge" aria-hidden="true"></span>
+                <div style="position:relative">
+                  <div class="dz-ico"><svg class="i i-l"><use href="#i-drop"/></svg></div>
+                  <div class="dz-idle-text">
+                    <h2>Przeciągnij tu pliki</h2>
+                    <p>Filmy, muzyka i zdjęcia trafią do kolejki i zagrają na Salon w pełnej jakości, do 4K HDR.</p>
+                    <button class="btn" data-act="choose-files"><svg class="i i-s"><use href="#i-folder"/></svg>Wybierz pliki</button>
+                    <div class="formats">MKV, MP4, WebM, MOV, FLAC, MP3, JPG, HEIC</div>
+                  </div>
+                  <div class="dz-drag-text"><h2>Puść, aby dodać do kolejki</h2><p>3 pliki, razem 41,2 GB</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <!-- Ekran: bezczynny -->
+          <section class="f-idle">
+            <div class="caption">
+              <div><h3 class="t-title" id="src-title">Monitor DP-1</h3><p>2560×1440 przeskalowany do 4K na telewizorze. Kliknij „Udostępnij ekran”, żeby zacząć.</p></div>
+              <div class="badges"><span class="badge">4K</span><span class="badge">60 Hz</span></div>
+            </div>
+          </section>
+          <section class="f-connecting">
+            <div class="caption"><div><h3 class="t-title">Łączenie…</h3><p>Uzgadniam format obrazu z telewizorem.</p></div></div>
+          </section>
+          <!-- Zgoda na TV -->
+          <section class="f-permission">
+            <div class="notice warn" role="status">
+              <span class="n-ico"><svg class="i"><use href="#i-remote"/></svg></span>
+              <div class="n-body">
+                <h3 class="t-title">Zaakceptuj połączenie na telewizorze</h3>
+                <p>Na ekranie Salon pojawiło się pytanie o zgodę. Wybierz pilotem „Zezwól”. Telewizor zapamięta ten komputer.</p>
+                <div class="n-actions"><button class="btn" data-act="cancel">Anuluj</button><span class="count" id="perm-count">Czekam jeszcze 24 s</span></div>
+              </div>
+            </div>
+          </section>
+          <!-- Na żywo -->
+          <section class="f-live">
+            <div class="stats">
+              <div class="stat"><div class="v"><span id="s-lat">108</span><small>ms</small></div><div class="k">Opóźnienie</div></div>
+              <div class="stat"><div class="v"><span id="s-fps">60</span><small>kl./s</small></div><div class="k">Płynność</div></div>
+              <div class="stat"><div class="v"><span id="s-br">10,6</span><small>Mb/s</small></div><div class="k">Przepływność</div></div>
+              <div class="stat"><div class="v"><span id="s-res">1080p</span></div><div class="k" id="s-res-k">1920×1080 · H.264</div></div>
+            </div>
+            <div class="stats-meta">
+              <span><svg class="i i-s"><use href="#i-cast"/></svg><span id="s-proto">Google Cast · kopia ekranu · Wi-Fi 5 GHz</span></span>
+              <button class="disclosure" data-act="details" aria-expanded="false" aria-controls="details-panel">Szczegóły<svg class="i i-s"><use href="#i-down"/></svg></button>
+            </div>
+            <div class="details-panel" id="details-panel" role="region" aria-label="Szczegóły transmisji">
+              <div class="chart">
+                <div class="chart-h"><span>Opóźnienie</span><span class="range-note" id="lat-range">min 98 · maks 131</span></div>
+                <div class="chart-v num"><span id="d-lat">108</span><small>ms</small></div>
+                <svg class="spark" id="spark-lat" viewBox="0 0 240 56" preserveAspectRatio="none" role="img" aria-label="Opóźnienie z ostatnich 60 sekund"></svg>
+                <div class="chart-axis"><span>60 s temu</span><span>teraz</span></div>
+              </div>
+              <div class="chart">
+                <div class="chart-h"><span>Przepływność</span><span class="range-note" id="br-target">cel 12 Mb/s</span></div>
+                <div class="chart-v num"><span id="d-br">10,6</span><small>Mb/s</small></div>
+                <svg class="spark" id="spark-br" viewBox="0 0 240 56" preserveAspectRatio="none" role="img" aria-label="Przepływność z ostatnich 60 sekund"></svg>
+                <div class="chart-axis"><span>60 s temu</span><span>teraz</span></div>
+              </div>
+              <div class="path">
+                <div class="path-h"><span>Ścieżka sygnału</span><span>szacunkowo</span></div>
+                <ol class="hops">
+                  <li class="hop"><span class="node"><svg class="i"><use href="#i-monitor"/></svg></span><span><b>Komputer</b><small>Przechwytywanie DP-1</small></span><span class="ms" data-hop="0">6 ms</span></li>
+                  <li class="hop"><span class="node"><svg class="i"><use href="#i-cpu"/></svg></span><span><b>Koder NVENC</b><small id="hop-enc">H.264 · RTX 3070</small></span><span class="ms" data-hop="1">5 ms</span></li>
+                  <li class="hop"><span class="node"><svg class="i"><use href="#i-wifi"/></svg></span><span><b>Wi-Fi 5 GHz</b><small>Dom_5G · −52 dBm</small></span><span class="ms" data-hop="2">9 ms</span></li>
+                  <li class="hop major"><span class="node"><svg class="i"><use href="#i-tv"/></svg></span><span><b>Salon</b><small>Bufor Cast i dekodowanie</small></span><span class="ms" data-hop="3">88 ms</span></li>
+                </ol>
+                <div class="budget"><div class="budget-bar" id="budget-bar" aria-hidden="true"></div><div class="budget-legend"><span>Od ekranu do telewizora</span><span class="num" id="budget-total">108 ms</span></div></div>
+              </div>
+              <p class="details-note">Najwięcej czasu zajmuje bufor odtwarzania odbiornika Google Cast w telewizorze. To stała część protokołu, a nie problem z siecią.</p>
+            </div>
+          </section>
+          <!-- Utracono połączenie -->
+          <section class="f-lost">
+            <div class="notice err" role="alert">
+              <span class="n-ico"><svg class="i"><use href="#i-wifi-off"/></svg></span>
+              <div class="n-body">
+                <h3 class="t-title">Utracono połączenie z Salon</h3>
+                <p>Telewizor nie odpowiada. Łączę ponownie, obraz wróci sam. <span id="lost-try">Próba 2/5 · następna za 4 s.</span></p>
+                <div class="n-actions"><button class="btn" data-act="retry"><svg class="i i-s"><use href="#i-refresh"/></svg>Spróbuj teraz</button></div>
+              </div>
+            </div>
+          </section>
+          <!-- Multimedia: adres URL -->
+          <section class="f-url">
+            <form class="url-row" onsubmit="return false">
+              <label for="url-in">Albo odtwórz z adresu</label>
+              <span class="field"><svg class="i i-s"><use href="#i-link"/></svg><input id="url-in" placeholder="https://… lub ścieżka do pliku w sieci"></span>
+              <button class="btn btn-lg" data-act="play-url"><svg class="i i-s" style="fill:currentColor;stroke:none"><use href="#i-play"/></svg>Odtwórz</button>
+            </form>
+          </section>
+          <!-- Multimedia: odtwarzacz -->
+          <section class="f-player">
+            <div class="np">
+              <div><h3 class="t-title" id="np-title">Zorza</h3><span class="file" id="np-file">zorza-2026-2160p.mkv</span></div>
+              <div class="badges"><span class="badge hot">4K HDR10</span><span class="badge">5.1</span></div>
+            </div>
+            <div class="seek">
+              <span id="np-pos">1:12:08</span>
+              <input class="range neutral" type="range" id="np-seek" min="0" max="10143" value="4328" aria-label="Pozycja odtwarzania">
+              <span id="np-dur">2:49:03</span>
+            </div>
+            <div class="transport">
+              <div class="t-left">
+                <button class="pill-btn" data-act="subs" aria-haspopup="menu" aria-expanded="false"><svg class="i i-s"><use href="#i-subs"/></svg><span id="subs-label">Napisy: polski</span></button>
+                <button class="pill-btn" data-act="subs" aria-haspopup="menu" aria-expanded="false"><svg class="i i-s"><use href="#i-wave"/></svg>English 5.1</button>
+              </div>
+              <div class="t-mid">
+                <button class="icon-btn" data-act="prev" aria-label="Poprzedni"><svg class="i"><use href="#i-prev"/></svg></button>
+                <button class="play" data-act="playpause" aria-label="Pauza" id="play-btn"><svg class="i"><use href="#i-pause" id="play-ico"/></svg></button>
+                <button class="icon-btn" data-act="next" aria-label="Następny"><svg class="i"><use href="#i-next"/></svg></button>
+              </div>
+              <div class="t-right">
+                <div class="vol"><svg class="i i-s"><use href="#i-vol"/></svg><input class="range neutral" type="range" min="0" max="100" value="62" aria-label="Głośność telewizora"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <aside class="rail">
+      <!-- Ekran: przed udostępnieniem -->
+      <section class="r-idle">
+        <div class="group">
+          <div class="g-label">Źródło</div>
+          <div class="src">
+            <span class="thumb"><svg viewBox="0 0 1600 900" style="width:100%;height:100%"><use href="#scene-desktop" class="src-thumb-use"/></svg></span>
+            <span><div class="s-t src-name">Monitor DP-1</div><div class="s-d src-desc">2560×1440, główny</div></span>
+            <button class="btn btn-sm" data-act="picker">Zmień</button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="g-label">Tryb</div>
+          <div class="seg" role="radiogroup" aria-label="Tryb udostępniania" data-group="smode">
+            <button role="radio" aria-checked="true" data-val="gra">Gra / praca</button>
+            <button role="radio" aria-checked="false" data-val="kino">Kino</button>
+          </div>
+          <div class="g-desc smode-desc">Najniższe opóźnienie, około 110 ms. Do pracy, prezentacji i spokojnych gier.</div>
+        </div>
+        <div class="group">
+          <div class="row">
+            <div><div class="r-t">Dźwięk na TV</div><div class="r-d">Dźwięk komputera zagra z telewizora</div></div>
+            <button class="switch" role="switch" aria-checked="true" aria-label="Dźwięk na TV" data-sync="audio"></button>
+          </div>
+        </div>
+        <div class="rail-bottom">
+          <button class="btn-primary btn" data-act="share">
+            Udostępnij ekran
+            <span class="nest" aria-hidden="true"><svg class="i"><use href="#i-cast"/></svg></span>
+          </button>
+          <div class="under">na Salon, Samsung S85F</div>
+        </div>
+      </section>
+
+      <!-- Ekran: na żywo -->
+      <section class="r-live">
+        <div class="group">
+          <div class="g-label">Jakość obrazu <span class="val" id="q-val">Gra / praca</span></div>
+          <input class="range" type="range" min="0" max="100" value="12" id="q-range" aria-label="Balans: opóźnienie czy jakość" aria-describedby="q-desc">
+          <div class="range-ends"><span>Niskie opóźnienie</span><span>Najwyższa jakość</span></div>
+          <div class="g-desc" id="q-desc">1080p · 60 kl./s · około 110 ms</div>
+        </div>
+        <div class="group">
+          <div class="g-label">Tryb</div>
+          <div class="seg" role="radiogroup" aria-label="Tryb udostępniania" data-group="smode">
+            <button role="radio" aria-checked="true" data-val="gra">Gra / praca</button>
+            <button role="radio" aria-checked="false" data-val="kino">Kino</button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="row">
+            <div><div class="r-t">Dźwięk na TV</div><div class="r-d">Wyjście systemowe, PipeWire</div></div>
+            <button class="switch" role="switch" aria-checked="true" aria-label="Dźwięk na TV" data-sync="audio"></button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="src">
+            <span class="thumb"><svg viewBox="0 0 1600 900" style="width:100%;height:100%"><use href="#scene-desktop" class="src-thumb-use"/></svg></span>
+            <span><div class="s-t src-name">Monitor DP-1</div><div class="s-d src-desc">2560×1440, główny</div></span>
+            <button class="btn btn-sm" data-act="picker">Zmień</button>
+          </div>
+        </div>
+        <div class="rail-bottom">
+          <button class="btn btn-stop" data-act="stop"><svg class="i"><use href="#i-stop"/></svg>Zatrzymaj</button>
+        </div>
+      </section>
+
+      <!-- Multimedia: kolejka -->
+      <section class="r-media">
+        <div class="q-head">
+          <h2>Kolejka</h2>
+          <span class="q-sum" id="q-sum">5 pozycji, 6 godz. 17 min</span>
+        </div>
+        <div class="q-empty"><b>Kolejka jest pusta</b>Dodane pliki zagrają po kolei, bez przerw między nimi.</div>
+        <ul class="queue" id="queue"></ul>
+        <div class="recent">
+          <div class="g-label">Ostatnio odtwarzane</div>
+          <ul class="queue" style="display:flex">
+            <li><button class="q-item" data-act="resume" data-i="0"><span class="qt"><svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice"><use href="#scene-movie"/></svg></span><span style="min-width:0"><div class="qn">Zorza</div><div class="qm">Przerwano w 1:12:08</div></span><span class="qd">Wznów</span></button></li>
+            <li><button class="q-item" data-act="resume" data-i="2"><span class="qt"><svg viewBox="0 0 64 36" preserveAspectRatio="xMidYMid slice"><use href="#q-sea"/></svg></span><span style="min-width:0"><div class="qn">Wakacje w Chorwacji</div><div class="qm">Wczoraj</div></span><span class="qd">12:41</span></button></li>
+            <li><button class="q-item" data-act="resume" data-i="4"><span class="qt"><svg viewBox="0 0 64 36" preserveAspectRatio="xMidYMid slice"><use href="#q-music"/></svg></span><span style="min-width:0"><div class="qn">Koncert w ogrodzie</div><div class="qm">FLAC</div></span><span class="qd">6:21</span></button></li>
+          </ul>
+        </div>
+        <div class="rail-bottom" style="display:flex;gap:8px">
+          <button class="btn" style="flex:1" data-act="choose-files"><svg class="i i-s"><use href="#i-plus"/></svg>Dodaj pliki</button>
+          <button class="btn btn-quiet q-clear" data-act="clear">Wyczyść</button>
+        </div>
+      </section>
+    </aside>
+  </section>
+
+  <!-- ============ Ustawienia ============ -->
+  <section class="view v-settings" aria-label="Ustawienia">
+    <nav class="s-nav" role="tablist" aria-orientation="vertical" aria-label="Sekcje ustawień">
+      <button role="tab" aria-selected="false" data-tab="ogolne"><svg class="i"><use href="#i-gen"/></svg>Ogólne</button>
+      <button role="tab" aria-selected="false" data-tab="obraz"><svg class="i"><use href="#i-monitor"/></svg>Obraz</button>
+      <button role="tab" aria-selected="false" data-tab="dzwiek"><svg class="i"><use href="#i-vol"/></svg>Dźwięk</button>
+      <button role="tab" aria-selected="true" data-tab="zaawansowane"><svg class="i"><use href="#i-code"/></svg>Zaawansowane</button>
+      <div class="ver">AirLinx 0.1, Zorin OS 17</div>
+    </nav>
+    <div class="s-body">
+      <div class="s-panel" data-panel="ogolne" role="tabpanel">
+        <h2>Ogólne</h2>
+        <p class="lede">Jak AirLinx zachowuje się w systemie.</p>
+        <div class="s-row"><div><div class="r-t">Uruchamiaj przy starcie systemu</div><div class="r-d">AirLinx startuje ukryty w zasobniku i od razu szuka telewizorów.</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Uruchamiaj przy starcie systemu"></button></div>
+        <div class="s-row"><div><div class="r-t">Zamknięcie okna</div><div class="r-d">Udostępnianie trwa dalej, gdy okno jest schowane.</div></div><span class="select"><select aria-label="Zamknięcie okna"><option>Chowa do zasobnika</option><option>Kończy program</option></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+        <div class="s-row"><div><div class="r-t">Domyślny telewizor</div><div class="r-d">Używany przez skrót w zasobniku.</div></div><span class="select"><select aria-label="Domyślny telewizor"><option>Salon, Samsung S85F</option><option>Sypialnia, LG OLED55C3</option></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+        <div class="s-row"><div><div class="r-t">Wygląd</div><div class="r-d">Ekran telewizora w podglądzie zawsze zostaje czarny.</div></div><div class="seg" role="radiogroup" aria-label="Wygląd" data-group="theme" style="width:260px"><button role="radio" aria-checked="false" data-val="auto">Systemowy</button><button role="radio" aria-checked="true" data-val="dark">Ciemny</button><button role="radio" aria-checked="false" data-val="light">Jasny</button></div></div>
+      </div>
+
+      <div class="s-panel" data-panel="obraz" role="tabpanel">
+        <h2>Obraz</h2>
+        <p class="lede">Domyślny profil kopii ekranu. Opóźnienie obejmuje bufor Google Cast w telewizorze. W trakcie udostępniania zmienisz go suwakiem.</p>
+        <div class="cards" role="radiogroup" aria-label="Profil jakości">
+          <button class="card" role="radio" aria-checked="true"><span class="radio"></span><div class="c-t"><svg class="i i-s"><use href="#i-zap"/></svg>Gra / praca</div><div class="c-d">Pisanie, gry, prezentacje</div><div class="c-lat">~110<small>ms</small></div><div class="c-spec"><span class="badge">1080p</span><span class="badge">60 kl./s</span></div></button>
+          <button class="card" role="radio" aria-checked="false"><span class="radio"></span><div class="c-t"><svg class="i i-s"><use href="#i-sliders"/></svg>Zrównoważony</div><div class="c-d">Przeglądanie, wideo z sieci</div><div class="c-lat">~125<small>ms</small></div><div class="c-spec"><span class="badge">1440p</span><span class="badge">60 kl./s</span></div></button>
+          <button class="card" role="radio" aria-checked="false"><span class="radio"></span><div class="c-t"><svg class="i i-s"><use href="#i-film"/></svg>Kino</div><div class="c-d">Filmy i zdjęcia z ekranu</div><div class="c-lat">~150<small>ms</small></div><div class="c-spec"><span class="badge">4K</span><span class="badge">30 kl./s</span></div></button>
+        </div>
+        <div class="s-sub">Kodowanie</div>
+        <div class="s-row"><div><div class="r-t">Koder wideo</div><div class="r-d">Sprzętowy koder karty graficznej odciąża procesor.</div></div><span class="select"><select aria-label="Koder wideo"><option>Automatycznie (NVENC, RTX 3070)</option><option>NVENC H.264</option><option>NVENC H.265 (tylko 4K)</option><option>VA-API</option><option>Programowy (x264)</option></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+        <div class="s-row"><div><div class="r-t">Maksymalna przepływność</div><div class="r-d">Niższa wartość pomaga przy słabym Wi-Fi.</div></div><span class="select"><select aria-label="Maksymalna przepływność"><option>Automatycznie</option><option>20 Mb/s</option><option>40 Mb/s</option><option>80 Mb/s</option></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+        <div class="s-row"><div><div class="r-t">Pokazuj kursor myszy</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Pokazuj kursor myszy"></button></div>
+      </div>
+
+      <div class="s-panel" data-panel="dzwiek" role="tabpanel">
+        <h2>Dźwięk</h2>
+        <p class="lede">Co słychać na telewizorze podczas udostępniania ekranu.</p>
+        <div class="s-row"><div><div class="r-t">Źródło dźwięku</div><div class="r-d">Przechwytywane przez PipeWire.</div></div><span class="select"><select aria-label="Źródło dźwięku"><option>Wyjście systemowe (wszystko)</option><option>Tylko udostępniane okno</option><option>Bez dźwięku</option></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+        <div class="s-row"><div><div class="r-t">Wycisz komputer podczas udostępniania</div><div class="r-d">Dźwięk gra tylko z telewizora, bez echa z głośników.</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Wycisz komputer"></button></div>
+        <div class="s-row"><div><div class="r-t">Przesyłaj dźwięk przestrzenny bez zmian</div><div class="r-d">Dla plików 5.1 i Dolby Atmos w trybie Multimedia.</div></div><button class="switch" role="switch" aria-checked="false" aria-label="Przesyłaj dźwięk przestrzenny"></button></div>
+      </div>
+
+      <div class="s-panel on" data-panel="zaawansowane" role="tabpanel">
+        <h2>Zaawansowane</h2>
+        <p class="lede">Zwykle nie trzeba tu nic zmieniać. AirLinx sam dobiera sposób połączenia do telewizora.</p>
+        <div class="s-sub" id="proto-l">Protokół połączenia z Salon</div>
+        <div class="cards vertical" role="radiogroup" aria-labelledby="proto-l" data-group="proto">
+          <button class="card" role="radio" aria-checked="true" data-val="auto"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-zap"/></svg></span><span><span class="c-t">Automatycznie <span class="tag">Zalecane</span></span><span class="c-d" style="display:block">Najlepsza dostępna metoda, z przełączaniem awaryjnym.</span></span></button>
+          <button class="card" role="radio" aria-checked="false" data-val="cast"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-cast"/></svg></span><span><span class="c-t">Google Cast</span><span class="c-d" style="display:block">Natywna kopia ekranu i multimedia. Opóźnienie około 100–150 ms.</span></span></button>
+          <button class="card" role="radio" aria-checked="false" data-val="dlna"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-dlna"/></svg></span><span><span class="c-t">DLNA</span><span class="c-d" style="display:block">Tylko pliki multimedialne, bez kopii ekranu. Działa z prawie każdym telewizorem.</span></span></button>
+          <button class="card" role="radio" aria-checked="false" data-val="web"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-globe"/></svg></span><span><span class="c-t">Przeglądarka TV</span><span class="c-d" style="display:block">Telewizor otwiera stronę z obrazem (WebRTC). Bez dodatkowych aplikacji.</span></span></button>
+        </div>
+        <div class="current"><span class="dot"></span>Teraz: Google Cast · kopia ekranu · wybrany automatycznie</div>
+        <div class="s-sub">Diagnostyka</div>
+        <div class="s-row"><div><div class="r-t">Zapisuj dziennik połączeń</div><div class="r-d">Plik w ~/.local/state/airlinx/ przydaje się przy zgłaszaniu błędów.</div></div><button class="switch" role="switch" aria-checked="false" aria-label="Zapisuj dziennik połączeń"></button></div>
+        <div class="s-row"><div><div class="r-t">Przywróć ustawienia domyślne</div></div><button class="btn">Przywróć</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Zasobnik (makieta pulpitu Zorin) ============ -->
+  <section class="view v-tray" aria-label="Makieta menu w zasobniku">
+    <div class="tray-specimen">
+      <h2>Zasobnik systemowy</h2>
+      <p>Natywne menu AppIndicator, tylko tekst. Ikona symboliczna z marki: &gt; &lt; gotowy, &gt; ◆ &lt; transmisja, &gt; ! &lt; błąd.</p>
+      <div class="spec-grid" role="table" aria-label="Stany ikony">
+        <div class="h"></div><div class="h">16 px</div><div class="h">22 px</div><div class="h">24 px</div>
+        <div class="lab">Gotowy</div><div><svg width="16" height="16"><use href="#t-idle-16"/></svg></div><div><svg width="22" height="22"><use href="#t-idle-22"/></svg></div><div><svg width="24" height="24"><use href="#t-idle-24"/></svg></div>
+        <div class="lab">Transmisja</div><div><svg width="16" height="16"><use href="#t-streaming-16"/></svg></div><div><svg width="22" height="22"><use href="#t-streaming-22"/></svg></div><div><svg width="24" height="24"><use href="#t-streaming-24"/></svg></div>
+        <div class="lab">Błąd</div><div><svg width="16" height="16"><use href="#t-error-16"/></svg></div><div><svg width="22" height="22"><use href="#t-error-22"/></svg></div><div><svg width="24" height="24"><use href="#t-error-24"/></svg></div>
+        <div class="lab">Jasny panel</div><div class="on-light"><svg width="16" height="16"><use href="#t-idle-16"/></svg><svg width="16" height="16"><use href="#t-streaming-16"/></svg><svg width="16" height="16"><use href="#t-error-16"/></svg></div><div class="on-light"><svg width="22" height="22"><use href="#t-streaming-22"/></svg></div><div class="on-light"><svg width="24" height="24"><use href="#t-streaming-24"/></svg></div>
+      </div>
+    </div>
+
+    <div class="gmenu" role="menu" aria-label="Menu AirLinx w zasobniku">
+      <div class="gi dis"><svg viewBox="0 0 16 16"><use href="#t-streaming-16"/></svg>Udostępniam ekran → Salon · 00:12:47</div>
+      <div class="sep"></div>
+      <div class="gi dis">Udostępnij ekran → Salon</div>
+      <div class="gi hover">Zatrzymaj</div>
+      <div class="sep"></div>
+      <div class="gi">Otwórz AirLinx</div>
+      <div class="gi">Zakończ</div>
+    </div>
+
+    <div class="taskbar" aria-hidden="true">
+      <div class="tb-app"><i style="background:linear-gradient(135deg,#4c8bf5,#2b5fd0)"></i></div>
+      <div class="tb-app"><i style="background:linear-gradient(135deg,#ff9a3c,#e5532d)"></i></div>
+      <div class="tb-app"><i style="background:linear-gradient(135deg,#5f8fd6,#3d6bb3)"></i></div>
+      <div class="tb-app active"><img src="assets/brand/app-icon.svg" alt=""></div>
+      <div class="tray">
+        <span class="tray-ico open"><svg viewBox="0 0 16 16"><use href="#t-streaming-16"/></svg></span>
+        <span class="tray-ico"><svg class="stroke" viewBox="0 0 24 24"><use href="#i-vol"/></svg></span>
+        <span class="tray-ico"><svg class="stroke" viewBox="0 0 24 24"><use href="#i-globe"/></svg></span>
+        <span class="clock">21:47<br>9.11.2026</span>
+      </div>
+    </div>
+  </section>
+  </main>
+</div>
+
+<!-- ============ Arkusz: wybór źródła ============ -->
+<div class="scrim" id="picker" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+    <div class="sheet-head">
+      <h2 id="picker-title" class="t-title">Co pokazać na Salon?</h2>
+      <button class="icon-btn" data-act="close-picker" aria-label="Zamknij"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Rodzaj źródła">
+      <button role="tab" aria-selected="true" data-ptab="mon">Monitory<span class="count">2</span></button>
+      <button role="tab" aria-selected="false" data-ptab="win">Okna<span class="count">6</span></button>
+    </div>
+    <div class="sheet-body">
+      <div class="tiles" data-ppanel="mon" role="radiogroup" aria-label="Monitory">
+        <button class="tile" role="radio" aria-checked="true" data-src="Monitor DP-1|2560×1440, główny|scene-desktop">
+          <div class="tt"><svg viewBox="0 0 1600 900"><use href="#scene-desktop"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div>
+          <div class="tl"><svg class="i i-s"><use href="#i-monitor"/></svg><b>DP-1</b><span>2560×1440, główny</span></div>
+        </button>
+        <button class="tile" role="radio" aria-checked="false" data-src="Monitor HDMI-1|1920×1080|scene-desk2">
+          <div class="tt"><svg viewBox="0 0 1600 900"><use href="#scene-desk2"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div>
+          <div class="tl"><svg class="i i-s"><use href="#i-monitor"/></svg><b>HDMI-1</b><span>1920×1080</span></div>
+        </button>
+      </div>
+      <div class="tiles windows" data-ppanel="win" role="radiogroup" aria-label="Okna" hidden>
+        <button class="tile" role="radio" aria-checked="false" data-src="Firefox|Okno, YouTube|w-firefox"><div class="tt"><svg viewBox="0 0 160 90"><use href="#w-firefox"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div><div class="tl"><i class="app-ico" style="background:linear-gradient(135deg,#ff9a3c,#e5532d)"></i><b>Firefox</b><span>YouTube</span></div></button>
+        <button class="tile" role="radio" aria-checked="false" data-src="Visual Studio Code|Okno, airlinx|w-code"><div class="tt"><svg viewBox="0 0 160 90"><use href="#w-code"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div><div class="tl"><i class="app-ico" style="background:linear-gradient(135deg,#3b9cf0,#1f6fc4)"></i><b>Visual Studio Code</b><span>airlinx</span></div></button>
+        <button class="tile" role="radio" aria-checked="false" data-src="Spotify|Okno|w-spotify"><div class="tt"><svg viewBox="0 0 160 90"><use href="#w-spotify"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div><div class="tl"><i class="app-ico" style="background:linear-gradient(135deg,#3ad37a,#1a9e52)"></i><b>Spotify</b><span>Odtwarzacz</span></div></button>
+        <button class="tile" role="radio" aria-checked="false" data-src="Pliki|Okno, Pobrane|w-files"><div class="tt"><svg viewBox="0 0 160 90"><use href="#w-files"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div><div class="tl"><i class="app-ico" style="background:linear-gradient(135deg,#7fa7e0,#4a76bd)"></i><b>Pliki</b><span>Pobrane</span></div></button>
+        <button class="tile" role="radio" aria-checked="false" data-src="Terminal|Okno|w-term"><div class="tt"><svg viewBox="0 0 160 90"><use href="#w-term"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div><div class="tl"><i class="app-ico" style="background:#1c1f24;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)"></i><b>Terminal</b><span>user@linux</span></div></button>
+        <button class="tile" role="radio" aria-checked="false" data-src="LibreOffice Calc|Okno, budżet.ods|w-calc"><div class="tt"><svg viewBox="0 0 160 90"><use href="#w-calc"/></svg><span class="tick"><svg class="i"><use href="#i-check"/></svg></span></div><div class="tl"><i class="app-ico" style="background:linear-gradient(135deg,#4fb06d,#2f7a4d)"></i><b>LibreOffice Calc</b><span>budżet.ods</span></div></button>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <div class="row"><button class="switch" role="switch" aria-checked="true" aria-label="Pokaż kursor myszy"></button>Pokaż kursor myszy</div>
+      <div class="acts"><button class="btn btn-quiet" data-act="close-picker">Anuluj</button><button class="btn btn-lg btn-accent" data-act="apply-src">Udostępnij</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Menu: telewizory ============ -->
+<div class="menu" id="m-devices" role="menu" aria-label="Telewizory">
+  <div class="m-h">Telewizory w sieci Dom_5G</div>
+  <button class="m-i" role="menuitemradio" aria-checked="true" data-act="pick-tv" data-tv="Salon"><svg class="i"><use href="#i-tv"/></svg><span><div>Salon</div><div class="m-d">Samsung S85F</div></span><svg class="i i-s check"><use href="#i-check"/></svg></button>
+  <button class="m-i" role="menuitemradio" aria-checked="false" data-act="pick-tv" data-tv="Sypialnia"><svg class="i"><use href="#i-tv"/></svg><span><div>Sypialnia</div><div class="m-d">LG OLED55C3, bez kopii ekranu</div></span><svg class="i i-s check"><use href="#i-check"/></svg></button>
+  <hr>
+  <button class="m-i" role="menuitem" data-act="rescan"><svg class="i"><use href="#i-refresh"/></svg>Szukaj telewizorów</button>
+</div>
+
+<!-- ============ Menu: napisy i dźwięk ============ -->
+<div class="menu up" id="m-subs" role="menu" aria-label="Napisy i ścieżka dźwiękowa">
+  <div class="m-h">Napisy</div>
+  <button class="m-i" role="menuitemradio" aria-checked="true" data-sub="polski">Polski <span class="m-d">zorza.pl.srt</span><svg class="i i-s check"><use href="#i-check"/></svg></button>
+  <button class="m-i" role="menuitemradio" aria-checked="false" data-sub="angielski">English <span class="m-d">wbudowane</span><svg class="i i-s check"><use href="#i-check"/></svg></button>
+  <button class="m-i" role="menuitemradio" aria-checked="false" data-sub="wyłączone">Wyłączone<svg class="i i-s check"><use href="#i-check"/></svg></button>
+  <hr>
+  <div class="m-h">Ścieżka dźwiękowa</div>
+  <button class="m-i" role="menuitemradio" aria-checked="true">English 5.1 <span class="m-d">DTS-HD MA</span><svg class="i i-s check"><use href="#i-check"/></svg></button>
+  <button class="m-i" role="menuitemradio" aria-checked="false">Polski lektor 2.0<svg class="i i-s check"><use href="#i-check"/></svg></button>
+</div>
+
+<input type="file" id="file-in" multiple hidden accept="video/*,audio/*,image/*">
+
+<!-- ============ Panel stanów makiety ============ -->
+<div class="dev">
+  <div class="dev-panel" id="dev-panel" hidden></div>
+  <button class="dev-toggle" data-act="dev" aria-expanded="false" aria-controls="dev-panel"><svg class="i i-s"><use href="#i-layers"/></svg>Stany makiety</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

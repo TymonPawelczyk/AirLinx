@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="pl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirLinx</title>
+<link rel="stylesheet" href="brand-tokens.css">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="live.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  
+
+  <!-- ikony 24×24, kreska 1.5 -->
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/></symbol>
+  <symbol id="i-window" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M6 7h.01M8.5 7h.01"/></symbol>
+  <symbol id="i-cast" viewBox="0 0 24 24"><path d="M2.5 8V6.5a2 2 0 0 1 2-2h15a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14"/><path d="M2.5 12.5a7 7 0 0 1 7 7M2.5 16a3.5 3.5 0 0 1 3.5 3.5"/><path d="M2.5 19.5h.01"/></symbol>
+  <symbol id="i-dlna" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18.5" r="2"/><circle cx="19" cy="18.5" r="2"/><path d="M11 6.8 6 16.7M13 6.8l5 9.9M7 18.5h10"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M7.5 3.5v17M16.5 3.5v17M3 8h4.5M3 16h4.5M16.5 8H21M16.5 16H21M3 12h18"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2"/><circle cx="9" cy="9.5" r="1.8"/><path d="m21 15-4.5-4.5L6 20.5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13.5a4.5 4.5 0 0 0 6.6.4l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.4 1.4"/><path d="M14 10.5a4.5 4.5 0 0 0-6.6-.4l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.4-1.4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.3-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5.5 6v12l9-6-9-6ZM18.5 6v12"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18.5 6v12l-9-6 9-6ZM5.5 6v12"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6.5 9H3.5v6h3L11 19V5Z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.5 6a8.5 8.5 0 0 1 0 12"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></symbol>
+  <symbol id="i-mix" viewBox="0 0 24 24"><path d="M9 5 5.5 8H3v5h2.5L9 16V5Z"/><rect x="15" y="3" width="5" height="9" rx="2.5"/><path d="M13 10a4.5 4.5 0 0 0 9 0M17.5 14.5V17M13 19.5c1.8 0 2.6-1.2 4.5-1.2s2.7 1.2 4.5 1.2"/></symbol>
+  <symbol id="i-app" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><path d="M17 13.5v7M13.5 17h7"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-4.8"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.5v4.2h-4.2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.3 2.8 17.5A2 2 0 0 0 4.5 20.5h15a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+  <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M8.5 16.4a5 5 0 0 1 6.2-.6M5 12.9a10 10 0 0 1 5-2.7M14.8 10.4a10 10 0 0 1 4.2 2.5M2 9.3a15 15 0 0 1 4.3-2.8M10.5 5.1a15 15 0 0 1 11.5 4.2"/><path d="M12 20h.01"/></symbol>
+  <symbol id="i-remote" viewBox="0 0 24 24"><rect x="7.5" y="2.5" width="9" height="19" rx="4.5"/><circle cx="12" cy="8" r="1.8"/><path d="M10.5 13h.01M13.5 13h.01M10.5 16h.01M13.5 16h.01"/></symbol>
+  <symbol id="i-subs" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 13.5h4M13.5 13.5H17M7 16h10"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h1.5M7 8v8M10.5 5v14M14 9v6M17.5 7v10M21 12h-.5"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2.5 4 13.5h7l-1 8 9-11h-7l1-8Z"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 15.5v2a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-2"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Z"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx=".8"/><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3"/></symbol>
+  <symbol id="i-gen" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-eq" viewBox="0 0 24 24"><path d="M6 18V11M10 18V6M14 18v-9M18 18v-5"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24"><path d="m5 3.5 13.5 7-6 1.5-3 6-4.5-14.5Z"/></symbol>
+
+
+  <!-- ikony zasobnika: marka C, symboliczne (docs/brand/final/icons/hicolor) -->
+  <symbol id="t-idle-16" viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3Z"/></symbol>
+  <symbol id="t-idle-22" viewBox="0 0 22 22"><path d="M1.75 4H4.25L7.75 11L4.25 18H1.75L5.25 11ZM20.25 4 16.75 11 20.25 18H17.75L14.25 11L17.75 4Z"/></symbol>
+  <symbol id="t-idle-24" viewBox="0 0 24 24"><path d="M1.5 4H4.5L8.5 12L4.5 20H1.5L5.5 12ZM22.5 4 18.5 12 22.5 20H19.5L15.5 12L19.5 4Z"/></symbol>
+  <symbol id="t-streaming-16" viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3ZM6.5 8 8 5 9.5 8 8 11Z"/></symbol>
+  <symbol id="t-streaming-22" viewBox="0 0 22 22"><path d="M1.75 4H4.25L7.75 11L4.25 18H1.75L5.25 11ZM20.25 4 16.75 11 20.25 18H17.75L14.25 11L17.75 4ZM9 11 11 7 13 11 11 15Z"/></symbol>
+  <symbol id="t-streaming-24" viewBox="0 0 24 24"><path d="M1.5 4H4.5L8.5 12L4.5 20H1.5L5.5 12ZM22.5 4 18.5 12 22.5 20H19.5L15.5 12L19.5 4ZM10 12 12 8 14 12 12 16Z"/></symbol>
+  <symbol id="t-error-16" viewBox="0 0 16 16"><path d="M1 3H3L5.5 8L3 13H1L3.5 8ZM15 3 12.5 8 15 13H13L10.5 8L13 3ZM7 3H9V9.5H7ZM7 11H9V13H7Z"/></symbol>
+  <symbol id="t-error-22" viewBox="0 0 22 22"><path d="M1.75 4H4.25L7.75 11L4.25 18H1.75L5.25 11ZM20.25 4 16.75 11 20.25 18H17.75L14.25 11L17.75 4ZM10 4H12V14H10ZM10 16H12V18H10Z"/></symbol>
+  <symbol id="t-error-24" viewBox="0 0 24 24"><path d="M1.5 4H4.5L8.5 12L4.5 20H1.5L5.5 12ZM22.5 4 18.5 12 22.5 20H19.5L15.5 12L19.5 4ZM10.75 4H13.25V15.5H10.75ZM10.75 17.5H13.25V20H10.75Z"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16.1a5 5 0 0 1 7 0M12 19.5h.01"/></symbol>
+</svg>
+
+<div class="app" data-screen="discovery" data-disc="scanning" data-mode="ekran" data-session="idle" data-media="empty" data-paused="false" data-details="closed">
+
+  <!-- ============ Pasek tytułu (CSD) ============ -->
+  <header class="bar" id="titlebar">
+    <div class="bar-left">
+      <svg id="logo" viewBox="52 52 717 129" role="img" aria-label="AirLinx"><path class="l-ink" d="M53.78 179.36 85.53 124.36 53.78 69.36H84.58L116.33 124.36L84.58 179.36Z"/><path class="l-ink" d="M249.5 179.36 217.74 124.36 249.5 69.36H218.69L186.94 124.36L218.69 179.36Z"/><path class="l-accent" d="M138.19 124.36 151.64 101.07 165.08 124.36 151.64 147.65 138.19 124.36Z"/><path class="l-ink" d="M305.18 159.7Q295.01 159.7 289.06 153.81Q283.11 147.92 283.11 138.37Q283.11 128.08 290.42 122.13Q297.74 116.17 311.01 116.17H324.4V111.83Q324.4 107.99 321.73 105.82Q319.07 103.65 314.11 103.65Q309.4 103.65 306.61 105.51Q303.82 107.37 303.57 110.97H285.96Q286.33 100.92 293.9 94.97Q301.46 89.02 314.36 89.02Q327.87 89.02 335.44 95.22Q343 101.42 343 112.58V158.46H325.02V146.68Q323.78 152.75 318.51 156.23Q313.24 159.7 305.18 159.7ZM633.41 158.46V90.26H651.39V102.66Q652.88 96.46 657.77 92.74Q662.67 89.02 669.74 89.02Q679.66 89.02 685.67 95.96Q691.69 102.91 691.69 114.44V158.46H673.09V116.3Q673.09 110.97 670.3 108.05Q667.51 105.14 662.55 105.14Q657.59 105.14 654.8 108.05Q652.01 110.97 652.01 116.3V158.46ZM699.13 158.46 722.69 123.12 700.74 90.26H721.45L729.88 103.9Q730.87 105.51 731.74 107.49Q732.61 109.48 733.1 110.72Q733.6 109.48 734.47 107.49Q735.34 105.51 736.33 103.9L744.76 90.26H765.47L743.64 123.12L767.08 158.46H746.37L736.45 142.34Q735.46 140.6 734.53 138.68Q733.6 136.76 733.1 135.52Q732.61 136.76 731.74 138.68Q730.87 140.6 729.88 142.34L719.84 158.46ZM535.32 158.46Q528.13 158.46 522.68 155.42Q517.22 152.38 514.18 146.93Q511.14 141.47 511.14 134.28V84.68H489.44V67.94H529.74V133.66Q529.74 137.25 531.79 139.49Q533.84 141.72 537.18 141.72H556.4V158.46ZM354.9 158.46V141.72H377.47V107H357.38V90.26H396.07V141.72H415.66V158.46ZM564.46 158.46V141.72H587.03V107H566.94V90.26H605.63V141.72H625.22V158.46ZM426.33 158.46V90.26H444.31V103.15Q445.8 96.58 450.82 92.8Q455.84 89.02 463.4 89.02Q473.7 89.02 479.52 95.96Q485.35 102.91 485.35 115.06V121.88H466.75V116.3Q466.75 110.97 463.9 108.05Q461.05 105.14 455.84 105.14Q450.63 105.14 447.78 108.42Q444.93 111.71 444.93 117.79V158.46ZM311.75 144.82Q317.58 144.82 320.99 141.9Q324.4 138.99 324.4 134.28V127.33H311.38Q306.42 127.33 303.75 129.75Q301.09 132.17 301.09 136.01Q301.09 139.86 303.88 142.34Q306.67 144.82 311.75 144.82ZM584.69 67.32 596.33 53.78 607.98 67.32 596.33 80.86ZM375.13 67.32 386.77 53.78 398.42 67.32 386.77 80.86Z"/></svg>
+      <button class="back" data-act="back"><svg class="i"><use href="#i-left"/></svg>Ustawienia</button>
+    </div>
+
+    <div class="modes" role="group" aria-label="Tryb">
+      <span class="modes-ind" aria-hidden="true"></span>
+      <button data-mode-btn="ekran" aria-pressed="true"><svg class="i i-s"><use href="#i-monitor"/></svg>Ekran</button>
+      <button data-mode-btn="media" aria-pressed="false"><svg class="i i-s"><use href="#i-film"/></svg>Multimedia</button>
+    </div>
+
+    <div class="bar-right">
+      <button class="tv-pill" data-act="devices" aria-haspopup="menu" aria-expanded="false" aria-label="Telewizor">
+        <span class="dot" id="tv-dot"></span>
+        <span class="name" id="tv-name">—</span>
+        <span class="status" id="tv-status"></span>
+        <svg class="i i-s"><use href="#i-down"/></svg>
+      </button>
+      <button class="icon-btn" data-act="settings" aria-label="Ustawienia" title="Ustawienia"><svg class="i"><use href="#i-sliders"/></svg></button>
+      <div class="win-ctl">
+        <button data-win="min" aria-label="Minimalizuj" title="Minimalizuj"><svg class="i"><use href="#i-min"/></svg></button>
+        <button data-win="max" aria-label="Maksymalizuj" title="Maksymalizuj"><svg class="i"><use href="#i-max"/></svg></button>
+        <button data-win="close" aria-label="Zamknij okno" title="Zamknij okno"><svg class="i"><use href="#i-x"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main style="display:contents">
+
+  <!-- ============ Odkrywanie / wybór TV / brak TV ============ -->
+  <section class="view v-discovery" aria-labelledby="disc-title">
+    <div class="disc">
+      <div class="radar" aria-hidden="true">
+        <svg class="rings" viewBox="0 0 220 216"><circle cx="110" cy="108" r="100"/><circle cx="110" cy="108" r="100"/><circle cx="110" cy="108" r="100"/></svg>
+        <div class="core"><svg class="mark nf-only" viewBox="0 0 24 24" style="color:var(--error)"><use href="#t-error-24"/></svg><svg class="mark disc-only" viewBox="0 52 256 152" aria-hidden="true"><path class="l-ink" d="M24 186.45 57.75 128 24 69.55H56.73L90.48 128L56.73 186.45Z"/><path class="l-ink" d="M232 186.45 198.25 128 232 69.55H199.27L165.52 128L199.27 186.45Z"/><path class="l-accent" d="M113.71 128 128 103.25 142.29 128 128 152.75 113.71 128Z"/></svg></div>
+      </div>
+
+      <div class="disc-only" style="display:contents">
+        <h1 id="disc-title" class="t-display"><span class="t-scan">Szukam telewizorów…</span><span class="t-found">Wybierz telewizor</span></h1>
+        <p class="lede">Telewizor musi być włączony i w tej samej sieci co komputer.</p>
+        <div class="found">
+          <div class="found-head"><span id="found-count"></span><span class="scan-note" id="scan-note"><span class="dot" data-s="busy"></span>Wciąż szukam</span></div>
+          <div id="tv-list" role="list" aria-label="Znalezione telewizory"></div>
+        </div>
+      </div>
+
+      <div class="nf-only" style="display:contents">
+        <h1 class="t-display">Nie widzę telewizora</h1>
+        <p class="lede">W sieci nic nie odpowiedziało. Sprawdź trzy rzeczy i poszukaj ponownie.</p>
+        <ul class="checklist">
+          <li><svg class="i"><use href="#i-check-circle"/></svg>Telewizor jest włączony, a nie w trybie czuwania.</li>
+          <li><svg class="i"><use href="#i-check-circle"/></svg>Komputer i telewizor są w tej samej sieci Wi-Fi lub LAN.</li>
+          <li><svg class="i"><use href="#i-check-circle"/></svg>Zapora sieciowa przepuszcza mDNS (port UDP 5353) i SSDP (1900).</li>
+        </ul>
+        <div class="disc-actions">
+          <button class="btn btn-lg btn-accent" data-act="rescan"><svg class="i i-s"><use href="#i-refresh"/></svg>Szukaj ponownie</button>
+        </div>
+      </div>
+
+      <div class="manual">
+        <button class="link-btn" data-act="manual" aria-expanded="false" aria-controls="manual-form"><svg class="i i-s"><use href="#i-plus"/></svg>Dodaj ręcznie (IP)</button>
+        <form id="manual-form" hidden>
+          <label class="field"><span class="sr">Adres IP telewizora</span><input id="manual-ip" class="mono" style="font-size:14px" placeholder="192.168.0.20" inputmode="decimal" autocomplete="off"></label>
+          <button class="btn btn-lg" type="submit" id="manual-go">Połącz</button>
+        </form>
+        <span class="hint" id="manual-hint" hidden>Adres znajdziesz w telewizorze: Ustawienia, Ogólne, Sieć, Stan sieci.</span>
+      </div>
+      <button class="link-btn back-to-work" data-act="close-disc" hidden><svg class="i i-s"><use href="#i-left"/></svg>Wróć</button>
+    </div>
+  </section>
+
+  <!-- ============ Praca: scena + szyna ============ -->
+  <section class="view v-work">
+    <div class="stage">
+      <div class="stage-inner">
+        <div class="tv" id="tv">
+          <div class="glow g-desktop" aria-hidden="true"><img class="glow-img" id="glow-src" alt=""></div>
+          <div class="glow g-movie" aria-hidden="true"><img class="glow-img" id="glow-media" alt=""></div>
+          <div class="glow drag-glow" aria-hidden="true"></div>
+          <div class="tv-frame">
+            <div class="screen" id="screen" role="img" aria-label="Podgląd ekranu telewizora">
+              <div class="layer l-preview"><img class="scene" id="preview-img" alt=""><div class="no-thumb" id="preview-empty"><svg class="i i-l"><use href="#i-monitor"/></svg><span id="preview-empty-name"></span></div></div>
+              <div class="l-preview-tag"><svg class="i i-s"><use href="#i-monitor"/></svg>Podgląd, telewizor jeszcze nic nie pokazuje</div>
+              <div class="layer l-live"><div class="live-chip"><span class="tally"></span>Na żywo <span class="time" id="live-time">00:00:00</span></div></div>
+              <div class="layer l-center l-connecting"><div><svg class="ax-connecting" viewBox="0 0 256 256" aria-hidden="true"><path class="ax-c ax-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="ax-c ax-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="ax-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg><div class="screen-msg" id="connecting-msg">Łączenie…</div></div></div>
+              <div class="layer l-center l-permission"><div><svg class="ax-connecting" viewBox="0 0 256 256" aria-hidden="true"><path class="ax-c ax-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="ax-c ax-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="ax-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg><div class="screen-msg">Czekam na telewizor…</div></div></div>
+              <div class="layer l-center l-lost"><div><svg class="ax-connecting" viewBox="0 0 256 256" aria-hidden="true"><path class="ax-c ax-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="ax-c ax-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="ax-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg><div class="screen-msg">Łączę ponownie…</div></div></div>
+              <div class="layer l-movie"><img class="scene" id="media-img" alt=""><div class="poster" id="media-poster"><svg class="i i-l"><use href="#i-film" id="poster-ico"/></svg><span id="poster-title"></span></div><div class="media-status" id="media-status"></div></div>
+              <div class="layer dropzone l-drop" id="dropzone">
+                <span class="dz-edge" aria-hidden="true"></span>
+                <div style="position:relative">
+                  <div class="dz-ico"><svg class="i i-l"><use href="#i-drop"/></svg></div>
+                  <div class="dz-idle-text">
+                    <h2>Przeciągnij tu pliki</h2>
+                    <p id="dz-desc">Filmy, muzyka i zdjęcia trafią do kolejki i zagrają na telewizorze w pełnej jakości.</p>
+                    <button class="btn" data-act="pick-files"><svg class="i i-s"><use href="#i-folder"/></svg>Wybierz pliki</button>
+                    <div class="formats">MKV, MP4, WebM, MOV, FLAC, MP3, JPG, PNG</div>
+                  </div>
+                  <div class="dz-drag-text"><h2>Puść, aby dodać do kolejki</h2><p id="dz-drag-count"></p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <section class="f-idle">
+            <div class="caption">
+              <div><h3 class="t-title" id="src-title">Wybierz źródło</h3><p id="idle-desc"></p></div>
+              <div class="badges" id="idle-badges"></div>
+            </div>
+          </section>
+          <section class="f-connecting">
+            <div class="caption"><div><h3 class="t-title">Łączenie…</h3><p id="connecting-desc">Uruchamiam odbiornik na telewizorze i uzgadniam format obrazu.</p></div></div>
+          </section>
+          <section class="f-permission">
+            <div class="notice warn" role="status">
+              <span class="n-ico"><svg class="i"><use href="#i-remote"/></svg></span>
+              <div class="n-body">
+                <h3 class="t-title">Zaakceptuj połączenie na telewizorze</h3>
+                <p>Jeśli na ekranie <span class="tv-n">telewizora</span> pojawiło się pytanie o zgodę, wybierz pilotem „Zezwól”. Telewizor zapamięta ten komputer.</p>
+                <div class="n-actions"><button class="btn" data-act="stop">Anuluj</button><span class="count" id="wait-count"></span></div>
+              </div>
+            </div>
+          </section>
+          <section class="f-live">
+            <div class="stats">
+              <div class="stat"><div class="v"><span id="s-lat">—</span><small>ms</small></div><div class="k">Opóźnienie</div></div>
+              <div class="stat"><div class="v"><span id="s-fps">—</span><small>kl./s</small></div><div class="k">Płynność</div></div>
+              <div class="stat"><div class="v"><span id="s-br">—</span><small>Mb/s</small></div><div class="k">Przepływność</div></div>
+              <div class="stat"><div class="v"><span id="s-res">—</span></div><div class="k" id="s-res-k"></div></div>
+            </div>
+            <div class="stats-meta">
+              <span><svg class="i i-s"><use href="#i-cast"/></svg><span id="s-proto"></span></span>
+              <button class="disclosure" data-act="details" aria-expanded="false" aria-controls="details-panel">Szczegóły<svg class="i i-s"><use href="#i-down"/></svg></button>
+            </div>
+            <div class="details-panel" id="details-panel" role="region" aria-label="Szczegóły transmisji">
+              <div class="chart">
+                <div class="chart-h"><span>Opóźnienie</span><span class="range-note" id="lat-range"></span></div>
+                <div class="chart-v num"><span id="d-lat">—</span><small>ms</small></div>
+                <svg class="spark" id="spark-lat" viewBox="0 0 240 56" preserveAspectRatio="none" role="img" aria-label="Opóźnienie z ostatnich 60 sekund"></svg>
+                <div class="chart-axis"><span>60 s temu</span><span>teraz</span></div>
+              </div>
+              <div class="chart">
+                <div class="chart-h"><span>Przepływność</span><span class="range-note" id="br-target"></span></div>
+                <div class="chart-v num"><span id="d-br">—</span><small>Mb/s</small></div>
+                <svg class="spark" id="spark-br" viewBox="0 0 240 56" preserveAspectRatio="none" role="img" aria-label="Przepływność z ostatnich 60 sekund"></svg>
+                <div class="chart-axis"><span>60 s temu</span><span>teraz</span></div>
+              </div>
+              <div class="path">
+                <div class="path-h"><span>Ścieżka sygnału</span><span>szacunkowo</span></div>
+                <ol class="hops">
+                  <li class="hop"><span class="node"><svg class="i"><use href="#i-monitor"/></svg></span><span><b>Komputer</b><small id="hop-cap">Przechwytywanie</small></span><span class="ms" data-hop="capture">—</span></li>
+                  <li class="hop"><span class="node"><svg class="i"><use href="#i-cpu"/></svg></span><span><b>Koder</b><small id="hop-enc">NVENC</small></span><span class="ms" data-hop="encode">—</span></li>
+                  <li class="hop"><span class="node"><svg class="i"><use href="#i-wifi"/></svg></span><span><b>Sieć</b><small id="hop-net">Wi-Fi / LAN</small></span><span class="ms" data-hop="network">—</span></li>
+                  <li class="hop major"><span class="node"><svg class="i"><use href="#i-tv"/></svg></span><span><b class="tv-n">Telewizor</b><small>Bufor odbiornika i dekodowanie</small></span><span class="ms" data-hop="tv">—</span></li>
+                </ol>
+                <div class="budget"><div class="budget-bar" id="budget-bar" aria-hidden="true"></div><div class="budget-legend"><span>Od ekranu do telewizora</span><span class="num" id="budget-total">—</span></div></div>
+              </div>
+              <p class="details-note" id="details-note">Najwięcej czasu zajmuje bufor odtwarzania w telewizorze. To stała część protokołu, a nie problem z siecią.</p>
+            </div>
+          </section>
+          <section class="f-lost">
+            <div class="notice warn" role="status">
+              <span class="n-ico"><svg class="i"><use href="#i-wifi-off"/></svg></span>
+              <div class="n-body">
+                <h3 class="t-title">Utracono sygnał</h3>
+                <p id="lost-desc">Łączę ponownie, obraz wróci sam.</p>
+              </div>
+            </div>
+          </section>
+          <section class="f-failed">
+            <div class="notice err" role="alert">
+              <span class="n-ico"><svg class="i"><use href="#i-alert"/></svg></span>
+              <div class="n-body">
+                <h3 class="t-title">Udostępnianie przerwane</h3>
+                <p id="failed-desc">Telewizor zamknął sesję.</p>
+                <div class="n-actions"><button class="btn btn-accent" data-act="share"><svg class="i i-s"><use href="#i-refresh"/></svg>Spróbuj ponownie</button><button class="btn btn-quiet" data-act="dismiss-failed">Zamknij</button></div>
+              </div>
+            </div>
+          </section>
+          <section class="f-url">
+            <form class="url-row" id="url-form">
+              <label for="url-in">Albo odtwórz z adresu</label>
+              <span class="field"><svg class="i i-s"><use href="#i-link"/></svg><input id="url-in" type="url" placeholder="https://… lub http://serwer/film.mkv" autocomplete="off"></span>
+              <button class="btn btn-lg" type="submit"><svg class="i i-s" style="fill:currentColor;stroke:none"><use href="#i-play"/></svg>Odtwórz</button>
+            </form>
+          </section>
+          <section class="f-player">
+            <div class="np">
+              <div style="min-width:0"><h3 class="t-title" id="np-title">—</h3><span class="file" id="np-file"></span></div>
+              <div class="badges" id="np-badges"></div>
+            </div>
+            <div class="seek">
+              <span id="np-pos">0:00</span>
+              <input class="range neutral" type="range" id="np-seek" min="0" max="1" step="1" value="0" aria-label="Pozycja odtwarzania">
+              <span id="np-dur">—</span>
+            </div>
+            <div class="transport">
+              <div class="t-left">
+                <button class="pill-btn" data-act="subs" id="subs-btn" aria-haspopup="menu" aria-expanded="false"><svg class="i i-s"><use href="#i-subs"/></svg><span id="subs-label">Napisy: wyłączone</span></button>
+              </div>
+              <div class="t-mid">
+                <button class="icon-btn" data-act="prev" aria-label="Poprzedni"><svg class="i"><use href="#i-prev"/></svg></button>
+                <button class="play" data-act="playpause" aria-label="Odtwórz" id="play-btn"><svg class="i"><use href="#i-play" id="play-ico"/></svg></button>
+                <button class="icon-btn" data-act="next" aria-label="Następny"><svg class="i"><use href="#i-next"/></svg></button>
+              </div>
+              <div class="t-right">
+                <button class="icon-btn" data-act="media-stop" aria-label="Zatrzymaj odtwarzanie" title="Zatrzymaj odtwarzanie"><svg class="i"><use href="#i-stop"/></svg></button>
+                <div class="vol"><svg class="i i-s"><use href="#i-vol"/></svg><input class="range neutral" type="range" id="vol" min="0" max="100" value="100" aria-label="Głośność telewizora"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <aside class="rail">
+      <div class="notice wl-note" id="wayland-note" role="note">
+        <span class="n-ico"><svg class="i i-s"><use href="#i-alert"/></svg></span>
+        <span>Sesja Wayland nie jest obsługiwana: kopia ekranu może być czarna. Wyloguj się i wybierz „Ubuntu on Xorg”. Odtwarzanie plików działa normalnie.</span>
+      </div>
+      <section class="r-idle">
+        <div class="group">
+          <div class="g-label">Źródło</div>
+          <div class="src">
+            <span class="thumb"><img class="src-thumb" alt=""></span>
+            <span style="min-width:0"><div class="s-t src-name">—</div><div class="s-d src-desc"></div></span>
+            <button class="btn btn-sm" data-act="picker">Zmień</button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="g-label">Jakość obrazu <span class="val q-val"></span></div>
+          <div class="seg" role="radiogroup" aria-label="Profil jakości" data-group="profile">
+            <button role="radio" aria-checked="true" data-val="gra">Gra / praca</button>
+            <button role="radio" aria-checked="false" data-val="zrownowazony">Balans</button>
+            <button role="radio" aria-checked="false" data-val="kino">Kino</button>
+          </div>
+          <div class="g-desc profile-desc"></div>
+        </div>
+        <div class="group">
+          <div class="row">
+            <div class="a-sum-wrap"><div class="r-t">Dźwięk na TV</div><button class="a-sum" data-act="audio-settings" aria-label="Źródło dźwięku: Dźwięk systemu. Zmień w ustawieniach"><span class="a-sum-t">Dźwięk systemu</span><svg class="i i-s" aria-hidden="true"><use href="#i-right"/></svg></button></div>
+            <button class="switch" role="switch" aria-checked="true" aria-label="Dźwięk na TV" data-opt="audio"></button>
+          </div>
+        </div>
+        <div class="rail-bottom">
+          <button class="btn-primary btn" data-act="share" id="share-btn">
+            Udostępnij ekran
+            <span class="nest" aria-hidden="true"><svg class="i"><use href="#i-cast"/></svg></span>
+          </button>
+          <div class="under" id="share-under"></div>
+        </div>
+      </section>
+
+      <section class="r-live">
+        <div class="group">
+          <div class="g-label">Jakość obrazu <span class="val q-val"></span></div>
+          <div class="seg" role="radiogroup" aria-label="Profil jakości" data-group="profile">
+            <button role="radio" aria-checked="true" data-val="gra">Gra / praca</button>
+            <button role="radio" aria-checked="false" data-val="zrownowazony">Balans</button>
+            <button role="radio" aria-checked="false" data-val="kino">Kino</button>
+          </div>
+          <div class="g-desc profile-desc"></div>
+        </div>
+        <div class="group">
+          <div class="row">
+            <div class="a-sum-wrap"><div class="r-t">Dźwięk na TV</div><button class="a-sum" data-act="audio-settings" aria-label="Źródło dźwięku: Dźwięk systemu. Zmień w ustawieniach"><span class="a-sum-t">Dźwięk systemu</span><svg class="i i-s" aria-hidden="true"><use href="#i-right"/></svg></button></div>
+            <button class="switch" role="switch" aria-checked="true" aria-label="Dźwięk na TV" data-opt="audio"></button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="src">
+            <span class="thumb"><img class="src-thumb" alt=""></span>
+            <span style="min-width:0"><div class="s-t src-name">—</div><div class="s-d src-desc"></div></span>
+            <button class="btn btn-sm" data-act="picker">Zmień</button>
+          </div>
+        </div>
+        <div class="rail-bottom">
+          <button class="btn btn-stop" data-act="stop"><svg class="i"><use href="#i-stop"/></svg>Zatrzymaj</button>
+        </div>
+      </section>
+
+      <section class="r-media">
+        <div class="q-head">
+          <h2>Kolejka</h2>
+          <span class="q-sum" id="q-sum"></span>
+        </div>
+        <div class="q-empty"><b>Kolejka jest pusta</b>Dodane pliki zagrają po kolei, bez przerw między nimi.</div>
+        <ul class="queue" id="queue"></ul>
+        <div class="rail-bottom" style="display:flex;gap:8px">
+          <button class="btn" style="flex:1" data-act="pick-files"><svg class="i i-s"><use href="#i-plus"/></svg>Dodaj pliki</button>
+        </div>
+      </section>
+    </aside>
+  </section>
+
+  <!-- ============ Ustawienia ============ -->
+  <section class="view v-settings" aria-label="Ustawienia">
+    <nav class="s-nav" role="tablist" aria-orientation="vertical" aria-label="Sekcje ustawień">
+      <button role="tab" aria-selected="true" data-tab="ogolne"><svg class="i"><use href="#i-gen"/></svg>Ogólne</button>
+      <button role="tab" aria-selected="false" data-tab="obraz"><svg class="i"><use href="#i-monitor"/></svg>Obraz</button>
+      <button role="tab" aria-selected="false" data-tab="dzwiek"><svg class="i"><use href="#i-vol"/></svg>Dźwięk</button>
+      <button role="tab" aria-selected="false" data-tab="zaawansowane"><svg class="i"><use href="#i-code"/></svg>Zaawansowane</button>
+      <div class="ver" id="app-version">AirLinx</div>
+    </nav>
+    <div class="s-body">
+      <div class="s-panel on" data-panel="ogolne" role="tabpanel">
+        <h2>Ogólne</h2>
+        <p class="lede">Jak AirLinx zachowuje się w systemie.</p>
+        <div class="s-row"><div><div class="r-t">Uruchamiaj przy starcie systemu</div><div class="r-d">AirLinx startuje w tle i od razu szuka telewizorów.</div></div><button class="switch" role="switch" aria-checked="false" aria-label="Uruchamiaj przy starcie systemu" data-setting="autostart"></button></div>
+        <div class="s-row"><div><div class="r-t">Zamknięcie okna</div><div class="r-d">Udostępnianie trwa dalej, gdy okno jest schowane.</div></div><span class="select"><select aria-label="Zamknięcie okna" data-setting="close_to_tray" data-type="bool"><option value="true">Chowa do zasobnika</option><option value="false">Kończy program</option></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+        <div class="s-row"><div><div class="r-t">Startuj ukryty w zasobniku</div></div><button class="switch" role="switch" aria-checked="false" aria-label="Startuj ukryty w zasobniku" data-setting="start_hidden"></button></div>
+        <div class="s-row"><div><div class="r-t">Powiadomienia</div><div class="r-d">Informacja o rozpoczęciu i końcu udostępniania.</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Powiadomienia" data-setting="notifications"></button></div>
+        <div class="s-row"><div><div class="r-t">Wygląd</div><div class="r-d">Ekran telewizora w podglądzie zawsze zostaje czarny.</div></div><div class="seg" role="radiogroup" aria-label="Wygląd" data-group="theme" style="width:260px"><button role="radio" aria-checked="false" data-val="auto">Systemowy</button><button role="radio" aria-checked="true" data-val="dark">Ciemny</button><button role="radio" aria-checked="false" data-val="light">Jasny</button></div></div>
+      </div>
+
+      <div class="s-panel" data-panel="obraz" role="tabpanel">
+        <h2>Obraz</h2>
+        <p class="lede">Domyślny profil kopii ekranu. Opóźnienie obejmuje bufor odbiornika w telewizorze. W trakcie udostępniania zmienisz go w panelu po prawej.</p>
+        <div class="cards" role="radiogroup" aria-label="Profil jakości" data-group="profile-card">
+          <button class="card" role="radio" aria-checked="true" data-val="gra"><span class="radio"></span><div class="c-t"><svg class="i i-s"><use href="#i-zap"/></svg>Gra / praca</div><div class="c-d">Pisanie, gry, prezentacje</div><div class="c-lat">~110<small>ms</small></div><div class="c-spec"><span class="badge">1080p</span><span class="badge">60 kl./s</span></div></button>
+          <button class="card" role="radio" aria-checked="false" data-val="zrownowazony"><span class="radio"></span><div class="c-t"><svg class="i i-s"><use href="#i-sliders"/></svg>Balans</div><div class="c-d">Przeglądanie, wideo z sieci. Na części telewizorów obraz może się zrywać.</div><div class="c-lat c-exp"><span class="badge exp">eksperymentalny</span></div><div class="c-spec"><span class="badge">1440p</span><span class="badge">60 kl./s</span></div></button>
+          <button class="card" role="radio" aria-checked="false" data-val="kino"><span class="radio"></span><div class="c-t"><svg class="i i-s"><use href="#i-film"/></svg>Kino</div><div class="c-d">Filmy i zdjęcia z ekranu. Na części telewizorów obraz może się zrywać.</div><div class="c-lat c-exp"><span class="badge exp">eksperymentalny</span></div><div class="c-spec"><span class="badge">4K</span><span class="badge">30 kl./s</span></div></button>
+        </div>
+        <div class="s-sub">Kodowanie</div>
+        <div class="s-row"><div><div class="r-t">Koder wideo</div><div class="r-d" id="encoder-desc">Sprzętowy koder karty graficznej odciąża procesor.</div></div><span class="faint" id="encoder-info">NVENC, wybierany automatycznie</span></div>
+        <div class="s-row"><div><div class="r-t">Przepływność</div><div class="r-d">Niższa wartość pomaga przy słabym Wi-Fi.</div></div><span class="select"><select aria-label="Przepływność" data-mirror="bitrate" data-type="int"><option value="6000000">6 Mb/s</option><option value="12000000">12 Mb/s</option><option value="18000000">18 Mb/s</option><option value="28000000">28 Mb/s</option><option value="40000000">40 Mb/s</option></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+      </div>
+
+      <div class="s-panel" data-panel="dzwiek" role="tabpanel">
+        <h2>Dźwięk</h2>
+        <p class="lede">Co słychać na telewizorze.</p>
+        <div class="s-row"><div><div class="r-t">Dźwięk na TV podczas udostępniania ekranu</div><div class="r-d">Gdy wyłączony, telewizor dostaje sam obraz.</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Dźwięk na TV" data-opt="audio"></button></div>
+        <section class="asrc" id="asrc" aria-labelledby="asrc-l">
+          <div class="s-sub" id="asrc-l">Źródło dźwięku</div>
+          <p class="asrc-off" id="asrc-off" hidden>Włącz „Dźwięk na TV”, żeby wybrać źródło.</p>
+          <div class="cards vertical" role="radiogroup" aria-labelledby="asrc-l" data-group="asrc">
+            <button class="card" role="radio" aria-checked="true" data-val="system"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-vol"/></svg></span><span><span class="c-t">Dźwięk systemu <span class="tag">Domyślnie</span></span><span class="c-d" style="display:block">Wszystko, co gra z głośników komputera.</span></span></button>
+            <button class="card" role="radio" aria-checked="false" data-val="mic"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-mic"/></svg></span><span><span class="c-t">Mikrofon</span><span class="c-d" style="display:block">Tylko wybrane wejście, na przykład głos do prezentacji.</span></span></button>
+            <button class="card" role="radio" aria-checked="false" data-val="system_mic"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-mix"/></svg></span><span><span class="c-t">System + mikrofon</span><span class="c-d" style="display:block">Dźwięk komputera i Twój głos w jednym strumieniu.</span></span></button>
+            <button class="card" role="radio" aria-checked="false" data-val="app"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-app"/></svg></span><span><span class="c-t">Wybrana aplikacja</span><span class="c-d" style="display:block">Tylko jedna aplikacja, na przykład przeglądarka z filmem.</span></span></button>
+          </div>
+          <div class="asrc-pane" id="asrc-mic" hidden>
+            <div class="s-row"><div><div class="r-t" id="mic-l">Mikrofon</div><div class="r-d" id="mic-d">Wejście, które usłyszy telewizor.</div></div><span class="select"><select id="mic-sel" aria-labelledby="mic-l" aria-describedby="mic-d"></select><svg class="i i-s"><use href="#i-down"/></svg></span></div>
+          </div>
+          <div class="asrc-pane" id="asrc-app" hidden>
+            <div class="asrc-head"><div><div class="r-t" id="app-l">Aplikacja</div><div class="r-d">Te aplikacje grają teraz.</div></div><button class="btn btn-sm" data-act="audio-refresh" id="audio-refresh" aria-describedby="app-l"><svg class="i i-s"><use href="#i-refresh"/></svg>Odśwież</button></div>
+            <div class="app-list" id="app-list" role="radiogroup" aria-labelledby="app-l" aria-busy="false"></div>
+            <div class="notice warn asrc-warn" role="note"><span class="n-ico"><svg class="i i-s"><use href="#i-alert"/></svg></span><span>Na czas udostępniania wybrana aplikacja nie gra z głośników komputera. Dźwięk wraca po zatrzymaniu.</span></div>
+          </div>
+          <div class="current" id="asrc-now" role="status" aria-live="polite"><span class="dot" id="asrc-dot"></span><span id="asrc-now-t">Teraz: nic nie jest przesyłane</span></div>
+        </section>
+        <div class="s-row asrc-after"><div><div class="r-t">Odtwarzaj kolejne pozycje automatycznie</div><div class="r-d">Po zakończeniu pliku zagra następny z kolejki.</div></div><button class="switch" role="switch" aria-checked="true" aria-label="Odtwarzaj kolejne pozycje automatycznie" data-setting="media.auto_advance"></button></div>
+      </div>
+
+      <div class="s-panel" data-panel="zaawansowane" role="tabpanel">
+        <h2>Zaawansowane</h2>
+        <p class="lede">Zwykle nie trzeba tu nic zmieniać. AirLinx sam dobiera sposób połączenia do telewizora.</p>
+        <div class="s-sub" id="proto-l">Protokół połączenia</div>
+        <div class="cards vertical" role="radiogroup" aria-labelledby="proto-l" data-group="proto">
+          <button class="card" role="radio" aria-checked="true" data-val="auto"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-zap"/></svg></span><span><span class="c-t">Automatycznie <span class="tag">Zalecane</span></span><span class="c-d" style="display:block">Najlepsza dostępna metoda, z przełączaniem awaryjnym na DLNA.</span></span></button>
+          <button class="card" role="radio" aria-checked="false" data-val="cast"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-cast"/></svg></span><span><span class="c-t">Google Cast</span><span class="c-d" style="display:block">Natywna kopia ekranu i multimedia. Opóźnienie około 110 ms w profilu Gra / praca.</span></span></button>
+          <button class="card" role="radio" aria-checked="false" data-val="dlna"><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-dlna"/></svg></span><span><span class="c-t">DLNA</span><span class="c-d" style="display:block">Multimedia i kopia ekranu jako strumień MPEG-TS. Większe opóźnienie, działa z prawie każdym telewizorem.</span></span></button>
+          <button class="card" role="radio" aria-checked="false" aria-disabled="true" data-val="web" disabled><span class="radio"></span><span class="c-ico"><svg class="i"><use href="#i-globe"/></svg></span><span><span class="c-t">Przeglądarka TV <span class="tag muted-tag">Wkrótce</span></span><span class="c-d" style="display:block">Telewizor otwiera stronę z obrazem (WebRTC). Niedostępne w tej wersji.</span></span></button>
+        </div>
+        <div class="current"><span class="dot" id="proto-dot"></span><span id="proto-now">Teraz: nic nie jest przesyłane</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Zasobnik (podgląd projektowy, tylko ?dev=1) ============ -->
+  <section class="view v-tray" aria-label="Makieta menu w zasobniku">
+    <div class="tray-specimen">
+      <h2>Zasobnik systemowy</h2>
+      <p>Natywne menu AppIndicator, tylko tekst. Ikona symboliczna z marki: &gt; &lt; gotowy, &gt; ◆ &lt; transmisja, &gt; ! &lt; błąd.</p>
+      <div class="spec-grid" role="table" aria-label="Stany ikony">
+        <div class="h"></div><div class="h">16 px</div><div class="h">22 px</div><div class="h">24 px</div>
+        <div class="lab">Gotowy</div><div><svg width="16" height="16"><use href="#t-idle-16"/></svg></div><div><svg width="22" height="22"><use href="#t-idle-22"/></svg></div><div><svg width="24" height="24"><use href="#t-idle-24"/></svg></div>
+        <div class="lab">Transmisja</div><div><svg width="16" height="16"><use href="#t-streaming-16"/></svg></div><div><svg width="22" height="22"><use href="#t-streaming-22"/></svg></div><div><svg width="24" height="24"><use href="#t-streaming-24"/></svg></div>
+        <div class="lab">Błąd</div><div><svg width="16" height="16"><use href="#t-error-16"/></svg></div><div><svg width="22" height="22"><use href="#t-error-22"/></svg></div><div><svg width="24" height="24"><use href="#t-error-24"/></svg></div>
+      </div>
+    </div>
+  </section>
+  </main>
+</div>
+
+<!-- ============ Arkusz: wybór źródła ============ -->
+<div class="scrim" id="picker" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+    <div class="sheet-head">
+      <h2 id="picker-title" class="t-title">Co pokazać na telewizorze?</h2>
+      <button class="icon-btn" data-act="close-picker" aria-label="Zamknij"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Rodzaj źródła">
+      <button role="tab" aria-selected="true" data-ptab="monitor">Monitory<span class="count" id="count-monitor">0</span></button>
+      <button role="tab" aria-selected="false" data-ptab="window">Okna<span class="count" id="count-window">0</span></button>
+    </div>
+    <div class="sheet-body">
+      <div class="tiles" data-ppanel="monitor" role="radiogroup" aria-label="Monitory"></div>
+      <div class="tiles windows" data-ppanel="window" role="radiogroup" aria-label="Okna" hidden></div>
+      <div class="sources-loading" id="sources-loading"><svg class="ax-connecting" viewBox="0 0 256 256" aria-hidden="true"><path class="ax-c ax-l" d="M8 195.44 46.94 128 8 60.56H45.77L84.71 128L45.77 195.44Z"/><path class="ax-c ax-r" d="M248 195.44 209.06 128 248 60.56H210.23L171.29 128L210.23 195.44Z"/><path class="ax-f frame" d="M111.51 128 128 99.44 144.49 128 128 156.56 111.51 128Z"/></svg><span>Zbieram podglądy ekranów i okien…</span></div>
+    </div>
+    <div class="sheet-foot">
+      <div class="row faint" id="picker-note"></div>
+      <div class="acts"><button class="btn btn-quiet" data-act="close-picker">Anuluj</button><button class="btn btn-lg btn-accent" data-act="apply-src" id="apply-src">Udostępnij</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Dialog: TV zajęty ============ -->
+<div class="scrim" id="confirm" aria-hidden="true">
+  <div class="sheet sheet-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-msg">
+    <div class="sheet-head"><h2 id="confirm-title" class="t-title">Przerwać to, co leci na TV?</h2></div>
+    <p class="confirm-msg" id="confirm-msg"></p>
+    <div class="sheet-foot">
+      <span></span>
+      <div class="acts"><button class="btn btn-quiet" data-act="confirm-no">Anuluj</button><button class="btn btn-lg btn-accent" data-act="confirm-yes" id="confirm-yes">Przerwij i pokaż</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Menu: telewizory ============ -->
+<div class="menu" id="m-devices" role="menu" aria-label="Telewizory">
+  <div class="m-h" id="m-devices-h">Telewizory w sieci</div>
+  <div id="m-devices-list"></div>
+  <hr>
+  <button class="m-i" role="menuitem" data-act="rescan"><svg class="i"><use href="#i-refresh"/></svg>Szukaj telewizorów</button>
+  <button class="m-i" role="menuitem" data-act="open-manual"><svg class="i"><use href="#i-plus"/></svg>Dodaj ręcznie (IP)</button>
+</div>
+
+<!-- ============ Menu: napisy ============ -->
+<div class="menu up" id="m-subs" role="menu" aria-label="Napisy">
+  <div class="m-h">Napisy</div>
+  <div id="m-subs-list"></div>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<div class="dev" id="dev" hidden>
+  <div class="dev-panel" id="dev-panel" hidden></div>
+  <button class="dev-toggle" data-act="dev" aria-expanded="false" aria-controls="dev-panel"><svg class="i i-s"><use href="#i-layers"/></svg>Narzędzia (dev)</button>
+</div>
+
+<script src="bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

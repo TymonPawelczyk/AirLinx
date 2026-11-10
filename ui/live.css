@@ -1,0 +1,68 @@
+/* AirLinx: dodatki widoku podpiętego do prawdziwego stanu (ładowany po app.css).
+   Prawdziwe miniatury zamiast scen makiety, toasty, dialog „TV zajęty”, stan błędu sesji. */
+
+/* obrazy na matrycy i w poświacie */
+.screen img.scene { width: 100%; height: 100%; object-fit: cover; display: block; }
+.glow-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.no-thumb, .poster { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: rgba(243,242,239,.55); font-size: 13px; }
+.no-thumb[hidden], .poster[hidden] { display: none; }
+.poster { background: radial-gradient(120% 90% at 50% 120%, #0f1f19 0%, #000 60%); color: rgba(243,242,239,.8); }
+.poster span { font: 500 20px/1.25 var(--font-display); letter-spacing: -.02em; max-width: 70%; text-align: center; }
+.poster .i { width: 34px; height: 34px; opacity: .6; }
+.media-status { position: absolute; left: 14px; bottom: 12px; padding: 5px 11px; border-radius: var(--r-md); background: rgba(0,0,0,.66); color: rgba(243,242,239,.9); font-size: 12.5px; font-weight: 500; }
+.media-status.err { color: #FF7A6B; }
+.media-status[hidden] { display: none; }
+.app[data-mode="media"][data-paused="true"] .l-movie img.scene { filter: brightness(.7); transition: filter var(--dur-base) var(--ease-out); }
+
+/* stan „błąd sesji” */
+.app[data-mode="ekran"][data-session="failed"] .f-failed { display: block; }
+.app[data-mode="ekran"][data-session="failed"] .r-idle { display: flex; }
+.app[data-mode="ekran"][data-session="failed"] .l-preview { opacity: .2; filter: grayscale(1); }
+.app[data-session="lost"] .notice.warn .n-ico { color: var(--warning); }
+#share-btn:disabled { opacity: .35; box-shadow: none; cursor: not-allowed; }
+
+/* kolejka: przycisk usuwania widoczny przy wskazaniu lub fokusie */
+.q-row { position: relative; }
+.q-row .q-item { padding-right: 40px; }
+.q-del { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.q-row:hover .q-del, .q-del:focus-visible { opacity: 1; }
+.q-row:hover .qd { visibility: hidden; }
+.q-item .qt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.qt-ico { position: absolute; inset: 0; display: grid; place-items: center; background: var(--surface-2); color: var(--text-3); }
+
+/* arkusz źródeł: prawdziwe miniatury, ładowanie */
+.tile .tt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tt-empty { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(243,242,239,.4); }
+.tile .tl b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+.tile .tl span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sources-loading { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 0; color: var(--text-2); font-size: var(--fs-small); background: var(--screen); border-radius: var(--r-lg); }
+.sources-loading[hidden] { display: none; }
+.sources-loading .ax-connecting { width: 48px; height: 48px; }
+
+/* dialog „TV zajęty” */
+.sheet-sm { width: min(460px, calc(100vw - 80px)); }
+.confirm-msg { margin: 10px 28px 4px; color: var(--text-2); }
+
+/* toasty */
+.toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; max-width: 520px; padding: 10px 16px; border-radius: var(--r-lg); background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); font-size: var(--fs-small); animation: rise var(--dur-slow) var(--ease-out) both; }
+.toast.err { box-shadow: inset 3px 0 0 var(--error), var(--shadow-pop); }
+.toast.out { opacity: 0; transform: translateY(6px); transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out); }
+
+/* odkrywanie */
+.manual .hint.bad { color: var(--error-text); }
+.back-to-work { margin-top: 10px; }
+.back-to-work[hidden] { display: none; }
+.scan-note[hidden] { visibility: hidden; }
+.muted-tag { color: var(--text-3); background: var(--fill-2); }
+.card:disabled { opacity: .55; cursor: not-allowed; }
+.card:disabled:hover { background: var(--fill); }
+.tv-row .t-meta { flex-wrap: wrap; }
+
+/* pasek tytułu w oknie GTK: przeciąganie obsługuje Python (airlinx.startDrag) */
+.bar { user-select: none; -webkit-user-select: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast, .toast.out { animation: none; transition: none; }
+}
+.rail .seg button { white-space: nowrap; padding: 0 6px; }

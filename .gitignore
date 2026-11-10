@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.claude/
+spikes/**/logs/
+spikes/**/results/
+site/_shots/
+.coverage
+coverage.xml
+htmlcov/
+junit-*.xml
+.pytest_cache/

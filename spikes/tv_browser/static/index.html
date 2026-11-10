@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirLinx TV Test</title>
+<style>
+  :root { --bg: #0d1117; --fg: #e6edf3; --dim: #8b949e; --acc: #ffd34d; --ok: #3fb950; --bad: #f85149; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+               font-family: system-ui, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #menu { padding: 3vh 4vw; display: grid; grid-template-columns: 1fr 1fr; gap: 3vw; height: 94vh; box-sizing: border-box; }
+  h1 { font-size: 5vh; margin: 0 0 2vh; }
+  .item { font-size: 3.6vh; padding: 1.6vh 2vw; margin: 1vh 0; border-radius: 1.2vh; background: #161b22;
+          border: 0.4vh solid transparent; cursor: pointer; }
+  .item.sel { border-color: var(--acc); background: #222a35; }
+  .item small { display: block; font-size: 2.2vh; color: var(--dim); }
+  #caps { font: 2vh/1.45 monospace; white-space: pre-wrap; overflow: hidden; background: #161b22;
+          padding: 1.5vh 1.5vw; border-radius: 1.2vh; }
+  .hint { font-size: 2.2vh; color: var(--dim); margin-top: 2vh; }
+  #stage { position: fixed; inset: 0; display: none; background: #000; }
+  #stage video, #stage canvas.main { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  #stats { position: absolute; top: 1.5vh; right: 1vw; width: 30vw; background: rgba(0,0,0,.72);
+           font: 2.15vh/1.35 monospace; padding: 1.2vh 1vw; border-radius: 1vh; white-space: pre; }
+  #stats b { color: var(--acc); }
+  #tvclock { position: absolute; left: 50%; transform: translateX(-50%); bottom: 4vh; background: rgba(0,0,0,.85);
+             border: 0.4vh solid var(--acc); color: #fff; font: bold 8vh monospace; padding: 0.6vh 2vw; border-radius: 1vh; }
+  #tvclock span { display: block; font: 2.2vh system-ui; color: var(--acc); text-align: center; }
+  #banner { position: absolute; left: 1vw; top: 1.5vh; background: rgba(0,0,0,.72); font-size: 3vh; padding: 1vh 1vw; border-radius: 1vh; }
+</style>
+</head>
+<body>
+<div id="menu">
+  <div>
+    <h1>AirLinx — test przeglądarki TV</h1>
+    <div id="items"></div>
+    <div class="hint">Strzałki ↑↓ + OK (Enter) albo cyfry 1–6. W teście: Wstecz/Back = menu, OK = włącz dźwięk (MSE).<br>
+      Na PC otwórz <b>http://&lt;PC&gt;:8090/clock.html</b> na pełnym ekranie (monitor przechwytywany).</div>
+  </div>
+  <div id="caps">Zbieram możliwości przeglądarki…</div>
+</div>
+<div id="stage">
+  <video id="v" playsinline autoplay muted></video>
+  <canvas id="cv" class="main"></canvas>
+  <div id="banner"></div>
+  <div id="stats"></div>
+  <div id="tvclock"><span>zegar TV (zsynchronizowany z PC)</span><div id="tvclockv">--</div></div>
+</div>
+<script src="/static/common.js"></script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const Q = new URLSearchParams(location.search);
+const SESSION = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '-' + Math.random().toString(36).slice(2, 6);
+const clock = new ClockSync();
+const bc = new BarcodeReader();
+let current = null;          // aktywny test: {name, stop(), stats()}
+let capsData = null;
+
+// parametry przekazywane do serwera (fps, br, res, profile, gop)
+function srvParams(extra) {
+  const p = new URLSearchParams();
+  for (const k of ['fps', 'br', 'res', 'profile', 'gop', 'acodec']) if (Q.get(k)) p.set(k, Q.get(k));
+  for (const k in (extra || {})) p.set(k, extra[k]);
+  return p.toString();
+}
+const r1 = (x) => (x === null || x === undefined || isNaN(x)) ? '-' : (Math.round(x * 10) / 10).toFixed(1);
+const r0 = (x) => (x === null || x === undefined || isNaN(x)) ? '-' : String(Math.round(x));
+
+// ------------------------------------------------------------------ menu
+const ITEMS = [
+  { t: 'mse', label: '1. Test A — WebSocket + MSE', sub: 'fMP4 H.264 (NVENC) → SourceBuffer, pogoń za krawędzią live' },
+  { t: 'mse-audio', label: '2. Test A — MSE + audio', sub: 'jak wyżej + AAC z monitora PulseAudio/PipeWire' },
+  { t: 'webcodecs', label: '3. Test B — WebCodecs', sub: 'H.264 AVCC → VideoDecoder → canvas' },
+  { t: 'webrtc', label: '4. Test C — WebRTC (aiortc)', sub: 'H.264 przez RTP/SRTP, jitterBufferTarget=0' },
+  { t: 'auto', label: '5. AUTO — wszystkie po kolei', sub: 'MSE → WebCodecs → WebRTC, po ' + (Q.get('dur') || 30) + ' s, wyniki na serwer' },
+  { t: 'caps', label: '6. Wyślij ponownie raport możliwości', sub: 'zapis do results/caps-*.json' },
+];
+let sel = 0;
+function renderMenu() {
+  $('items').innerHTML = ITEMS.map((it, i) =>
+    `<div class="item ${i === sel ? 'sel' : ''}" data-i="${i}">${it.label}<small>${it.sub}</small></div>`).join('');
+  for (const el of document.querySelectorAll('.item')) el.onclick = () => choose(+el.dataset.i);
+}
+function choose(i) {
+  const it = ITEMS[i];
+  if (it.t === 'caps') { runCaps(); return; }
+  const p = new URLSearchParams(location.search);
+  p.set('test', it.t === 'mse-audio' ? 'mse' : it.t);
+  if (it.t === 'mse-audio') p.set('audio', '1'); else p.delete('audio');
+  location.search = p.toString();
+}
+document.addEventListener('keydown', (e) => {
+  const k = e.key, c = e.keyCode;
+  const inTest = $('stage').style.display === 'block';
+  if (inTest) {
+    if (k === 'Escape' || k === 'Backspace' || k === 'GoBack' || k === 'XF86Back' || c === 10009 || c === 8 || c === 27) {
+      e.preventDefault(); location.href = '/';
+    } else if (k === 'Enter' || c === 13) {
+      const v = $('v'); v.muted = false; v.play().catch(() => {});
+    }
+    return;
+  }
+  if (k === 'ArrowDown' || c === 40) { sel = (sel + 1) % ITEMS.length; renderMenu(); e.preventDefault(); }
+  else if (k === 'ArrowUp' || c === 38) { sel = (sel + ITEMS.length - 1) % ITEMS.length; renderMenu(); e.preventDefault(); }
+  else if (k === 'Enter' || c === 13) { choose(sel); e.preventDefault(); }
+  else if (c >= 49 && c <= 54) { choose(c - 49); }
+});
+
+// ------------------------------------------------------------------ reporting
+async function post(obj) {
+  try {
+    const r = await fetch('/report', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj) });
+    return await r.json();
+  } catch (e) { return { ok: false, error: String(e) }; }
+}
+
+// ------------------------------------------------------------------ capabilities
+const MSE_TYPES = [
+  'video/mp4; codecs="avc1.640028"', 'video/mp4; codecs="avc1.42E01F"', 'video/mp4; codecs="avc1.4d402a"',
+  'video/mp4; codecs="avc1.64002a"', 'video/mp4; codecs="avc1.640033"',
+  'video/mp4; codecs="hvc1.1.6.L120.90"', 'video/mp4; codecs="hev1.1.6.L150.90"',
+  'video/mp4; codecs="avc1.640028,mp4a.40.2"', 'audio/mp4; codecs="mp4a.40.2"', 'audio/mp4; codecs="opus"',
+  'video/webm; codecs="vp8"', 'video/webm; codecs="vp9"', 'video/webm; codecs="vp09.00.40.08"',
+  'video/mp4; codecs="av01.0.08M.08"', 'audio/webm; codecs="opus"',
+];
+const WC_CODECS = ['avc1.640028', 'avc1.64002a', 'avc1.42E01F', 'avc1.4d402a', 'hvc1.1.6.L120.90', 'vp8', 'vp09.00.40.08', 'av01.0.08M.08'];
+
+async function collectCaps() {
+  const c = { kind: 'caps', session: SESSION, ua: navigator.userAgent, time: new Date().toISOString() };
+  c.screen = { w: screen.width, h: screen.height, availW: screen.availWidth, availH: screen.availHeight,
+    dpr: window.devicePixelRatio, inner: [innerWidth, innerHeight], colorDepth: screen.colorDepth };
+  c.hardwareConcurrency = navigator.hardwareConcurrency; c.deviceMemory = navigator.deviceMemory;
+  c.tizen = typeof tizen !== 'undefined'; c.webapis = typeof webapis !== 'undefined';
+  c.WebSocket = typeof WebSocket !== 'undefined';
+  c.RTCPeerConnection = typeof RTCPeerConnection !== 'undefined';
+  try { c.rtcRecvVideo = RTCRtpReceiver.getCapabilities('video').codecs.map((x) => x.mimeType + (x.sdpFmtpLine ? ' ' + x.sdpFmtpLine : '')); } catch (e) { c.rtcRecvVideo = 'ERR ' + e; }
+  try { c.rtcRecvAudio = RTCRtpReceiver.getCapabilities('audio').codecs.map((x) => x.mimeType); } catch (e) { c.rtcRecvAudio = 'ERR ' + e; }
+  try { c.rtcJitterBufferTarget = 'jitterBufferTarget' in RTCRtpReceiver.prototype; c.rtcPlayoutDelayHint = 'playoutDelayHint' in RTCRtpReceiver.prototype; } catch (e) { /* */ }
+  c.MediaSource = typeof MediaSource !== 'undefined';
+  c.ManagedMediaSource = typeof ManagedMediaSource !== 'undefined';
+  c.mse = {};
+  if (c.MediaSource) for (const t of MSE_TYPES) { try { c.mse[t] = MediaSource.isTypeSupported(t); } catch (e) { c.mse[t] = 'ERR'; } }
+  const ve = document.createElement('video');
+  c.canPlayType = {};
+  for (const t of ['video/mp4; codecs="avc1.640028"', 'video/mp4; codecs="hvc1.1.6.L120.90"', 'application/vnd.apple.mpegurl', 'application/x-mpegURL']) c.canPlayType[t] = ve.canPlayType(t);
+  c.WebCodecs = { VideoDecoder: typeof VideoDecoder !== 'undefined', AudioDecoder: typeof AudioDecoder !== 'undefined',
+    VideoFrame: typeof VideoFrame !== 'undefined', EncodedVideoChunk: typeof EncodedVideoChunk !== 'undefined' };
+  c.wc = {};
+  if (c.WebCodecs.VideoDecoder) {
+    for (const codec of WC_CODECS) for (const hw of ['no-preference', 'prefer-hardware', 'prefer-software']) {
+      try {
+        const r = await VideoDecoder.isConfigSupported({ codec, codedWidth: 1920, codedHeight: 1080, hardwareAcceleration: hw, optimizeForLatency: true });
+        c.wc[codec + ' | ' + hw] = r.supported;
+      } catch (e) { c.wc[codec + ' | ' + hw] = 'ERR ' + e.name; }
+    }
+  }
+  c.requestVideoFrameCallback = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+  c.OffscreenCanvas = typeof OffscreenCanvas !== 'undefined';
+  c.MediaStreamTrackProcessor = typeof MediaStreamTrackProcessor !== 'undefined';
+  c.getVideoPlaybackQuality = 'getVideoPlaybackQuality' in HTMLVideoElement.prototype;
+  try { c.webgl2 = !!document.createElement('canvas').getContext('webgl2'); } catch (e) { c.webgl2 = false; }
+  c.barcodeSelfTest = bcSelfTest();
+  c.clock = { offsetVsDateNow: clock.offset - (Date.now() - performance.now()), rtt: clock.rtt };
+  return c;
+}
+function capsSummary(c) {
+  const yes = (b) => b === true ? '✔' : (b === false ? '✘' : String(b));
+  const mseKeys = Object.keys(c.mse || {});
+  const wcKeys = Object.keys(c.wc || {}).filter((k) => k.endsWith('no-preference'));
+  return [
+    'UA: ' + c.ua,
+    `Ekran: ${c.screen.w}x${c.screen.h} dpr=${c.screen.dpr} okno=${c.screen.inner.join('x')}`,
+    `WebSocket ${yes(c.WebSocket)}  RTCPeerConnection ${yes(c.RTCPeerConnection)}  rVFC ${yes(c.requestVideoFrameCallback)}`,
+    `MediaSource ${yes(c.MediaSource)}  ManagedMS ${yes(c.ManagedMediaSource)}  VideoDecoder ${yes(c.WebCodecs.VideoDecoder)}`,
+    'RTC recv: ' + (Array.isArray(c.rtcRecvVideo) ? [...new Set(c.rtcRecvVideo.map((x) => x.split(' ')[0].replace('video/', '')))].join(', ') : c.rtcRecvVideo),
+    '— MSE isTypeSupported —',
+    ...mseKeys.map((k) => `${yes(c.mse[k])} ${k}`),
+    '— VideoDecoder.isConfigSupported (no-preference) —',
+    ...wcKeys.map((k) => `${yes(c.wc[k])} ${k.split(' | ')[0]}  hw:${yes(c.wc[k.replace('no-preference', 'prefer-hardware')])}`),
+    `barcode self-test: ${c.barcodeSelfTest.pass ? 'OK' : 'FAIL'}   clock rtt=${r1(clock.rtt)} ms`,
+  ].join('\n');
+}
+async function runCaps() {
+  $('caps').textContent = 'Zbieram możliwości przeglądarki…';
+  capsData = await collectCaps();
+  window.__caps = capsData;
+  const r = await post(capsData);
+  $('caps').textContent = capsSummary(capsData) + '\n\nwysłano: ' + (r.ok ? r.file : 'BŁĄD ' + r.error);
+}
+
+// ------------------------------------------------------------------ stage helpers
+function showStage(kind) {
+  $('menu').style.display = 'none';
+  $('stage').style.display = 'block';
+  $('v').style.display = kind === 'video' ? 'block' : 'none';
+  $('cv').style.display = kind === 'canvas' ? 'block' : 'none';
+}
+function tickClock() {
+  $('tvclockv').textContent = fmtClock(clock.now());
+  requestAnimationFrame(tickClock);
+}
+
+// ------------------------------------------------------------------ Test A: MSE
+function startMSE(audio) {
+  const v = $('v');
+  v.muted = !audio;
+  const st = { test: audio ? 'mse+audio' : 'mse', frags: 0, bytes: 0, appended: 0, seeks: 0, errors: 0, info: null };
+  const net = new Rolling(120), srv = new Rolling(120), latMedia = new Rolling(120), ahead = new Rolling(40);
+  let capOffset = null, ms = null, sb = null, queue = [], lastFrags = 0, lastBytes = 0, lastT = performance.now();
+  let fps = 0, mbps = 0, presented = 0, lastPresented = 0, pfps = 0, ctrl = null, rvfcOn = true;
+  const ws = new WebSocket(wsUrl('/ws/mse?' + srvParams(audio ? { audio: 1 } : {})));
+  ws.binaryType = 'arraybuffer';
+  ws.onclose = () => { st.wsClosed = true; };
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === 'string') {
+      const info = JSON.parse(ev.data); st.info = info;
+      const codecs = info.codec + (info.acodec ? ',' + info.acodec : '');
+      st.mime = `video/mp4; codecs="${codecs}"`;
+      st.mimeSupported = MediaSource.isTypeSupported(st.mime);
+      ms = new MediaSource();
+      v.src = URL.createObjectURL(ms);
+      ms.addEventListener('sourceopen', () => {
+        try {
+          sb = ms.addSourceBuffer(st.mime);
+          sb.mode = 'segments';
+          sb.addEventListener('updateend', pump);
+          sb.addEventListener('error', () => { st.errors++; });
+        } catch (e) { st.lastError = 'addSourceBuffer: ' + e; }
+        pump();
+      });
+      return;
+    }
+    const dv = new DataView(ev.data);
+    const typ = dv.getUint8(0), cap = dv.getFloat64(1, true), send = dv.getFloat64(9, true), media = dv.getFloat64(17, true);
+    const now = clock.now();
+    net.push(now - send);
+    if (cap > 0) srv.push(send - cap);
+    if (cap > 0 && media >= 0) capOffset = cap - media;
+    queue.push(new Uint8Array(ev.data, 25));
+    if (typ > 0) { st.frags++; }
+    st.bytes += ev.data.byteLength;
+    pump();
+  };
+  function pump() {
+    if (!sb || sb.updating || !queue.length || ms.readyState !== 'open') return;
+    let n = 0; for (const q of queue) n += q.length;
+    const buf = new Uint8Array(n); let o = 0;
+    for (const q of queue) { buf.set(q, o); o += q.length; }
+    queue = [];
+    try { sb.appendBuffer(buf); st.appended++; } catch (e) {
+      st.errors++; st.lastError = String(e);
+      if (e.name === 'QuotaExceededError' && v.buffered.length) { try { sb.remove(0, v.currentTime - 1); } catch (e2) { /* */ } }
+    }
+  }
+  let lastCleanup = performance.now();
+  const LO = +(Q.get('lo') || 0.07), HI = +(Q.get('hi') || 0.15), MAX = +(Q.get('max') || 0.5);
+  ctrl = setInterval(() => {
+    if (!sb || !v.buffered.length) return;
+    const end = v.buffered.end(v.buffered.length - 1);
+    const a = end - v.currentTime;
+    ahead.push(a * 1000);
+    if (v.paused && a > 0.03) v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+    if (a > MAX || v.currentTime < v.buffered.start(v.buffered.length - 1)) {
+      v.currentTime = Math.max(end - LO / 2, v.buffered.start(v.buffered.length - 1)); st.seeks++;
+    } else if (a > HI) v.playbackRate = 1.2;
+    else if (a > LO) v.playbackRate = 1.05;
+    else v.playbackRate = 1.0;
+    if (capOffset !== null && !v.paused) latMedia.push(clock.now() - (capOffset + v.currentTime * 1000));
+    const n = performance.now();
+    if (n - lastCleanup > 5000 && !sb.updating && v.currentTime - v.buffered.start(0) > 15) {
+      try { sb.remove(0, v.currentTime - 8); } catch (e) { /* */ }
+      lastCleanup = n;
+    }
+  }, 100);
+  // pomiar w chwili prezentacji klatki
+  const rvfcLat = new Rolling(120);
+  if ('requestVideoFrameCallback' in v) {
+    const cb = (now, md) => {
+      if (!rvfcOn) return;
+      presented++;
+      const tDisp = clock.perfToServer(md.expectedDisplayTime || now);
+      if (capOffset !== null) rvfcLat.push(tDisp - (capOffset + md.mediaTime * 1000));
+      bc.read(v, md.width || v.videoWidth, md.height || v.videoHeight, tDisp);
+      v.requestVideoFrameCallback(cb);
+    };
+    v.requestVideoFrameCallback(cb);
+  } else {
+    let lastCT = -1;
+    const loop = () => {
+      if (!rvfcOn) return;
+      if (v.currentTime !== lastCT) { lastCT = v.currentTime; presented++; bc.read(v, v.videoWidth, v.videoHeight, clock.now()); }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+  return {
+    name: st.test,
+    stop() { rvfcOn = false; clearInterval(ctrl); try { ws.close(); } catch (e) { /* */ } v.removeAttribute('src'); v.load(); },
+    stats() {
+      const n = performance.now(), dt = (n - lastT) / 1000;
+      if (dt >= 1) {
+        fps = (st.frags - lastFrags) / dt; mbps = (st.bytes - lastBytes) * 8 / dt / 1e6; pfps = (presented - lastPresented) / dt;
+        lastFrags = st.frags; lastBytes = st.bytes; lastPresented = presented; lastT = n;
+      }
+      const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {};
+      return {
+        test: st.test, mime: st.mime, mimeSupported: st.mimeSupported, readyState: v.readyState, paused: v.paused,
+        video: v.videoWidth + 'x' + v.videoHeight, recv_fps: +r1(fps), presented_fps: +r1(pfps), mbps: +r1(mbps),
+        buffer_ahead_ms: +r0(ahead.med()), lat_media_ms: +r0(latMedia.med()), lat_rvfc_ms: +r0(rvfcLat.med()),
+        lat_barcode_ms: +r0(bc.median()), barcode_ok: bc.ok, barcode_bad: bc.bad,
+        net_oneway_ms: +r1(net.med()), srv_capture_to_send_ms: +r1(srv.med()),
+        est_pipeline_ms: +r0((srv.med() || 0) + (net.med() || 0) + (ahead.med() || 0)),
+        playbackRate: v.playbackRate, seeks: st.seeks, dropped: q.droppedVideoFrames, total: q.totalVideoFrames,
+        errors: st.errors, lastError: st.lastError, frags: st.frags, wsClosed: !!st.wsClosed,
+      };
+    },
+  };
+}
+
+// ------------------------------------------------------------------ Test B: WebCodecs
+function startWC() {
+  const cv = $('cv');
+  const ctx = cv.getContext('2d', { alpha: false, desynchronized: true });
+  const st = { test: 'webcodecs', recv: 0, decoded: 0, skipped: 0, errors: 0, bytes: 0 };
+  const net = new Rolling(120), srv = new Rolling(120), lat = new Rolling(120), dect = new Rolling(120), qsz = new Rolling(60);
+  let dec = null, waitingKey = true, lastT = performance.now(), lastDec = 0, lastRecv = 0, lastBytes = 0, fps = 0, rfps = 0, mbps = 0;
+  const t0map = new Map(), capMap = new Map();
+  if (typeof VideoDecoder === 'undefined') {
+    return { name: 'webcodecs', stop() {}, stats() { return { test: 'webcodecs', error: 'VideoDecoder niedostępny' }; } };
+  }
+  const ws = new WebSocket(wsUrl('/ws/wc?' + srvParams()));
+  ws.binaryType = 'arraybuffer';
+  ws.onclose = () => { st.wsClosed = true; };
+  ws.onmessage = async (ev) => {
+    if (typeof ev.data === 'string') {
+      const info = JSON.parse(ev.data);
+      const desc = Uint8Array.from(atob(info.description), (ch) => ch.charCodeAt(0));
+      const cfg = { codec: info.codec, description: desc, optimizeForLatency: true,
+        hardwareAcceleration: Q.get('hw') || 'no-preference' };
+      st.codec = info.codec;
+      try { const s = await VideoDecoder.isConfigSupported(cfg); st.configSupported = s.supported; } catch (e) { st.configSupported = 'ERR ' + e; }
+      dec = new VideoDecoder({
+        output(frame) {
+          const t = clock.now();
+          if (cv.width !== frame.displayWidth) { cv.width = frame.displayWidth; cv.height = frame.displayHeight; }
+          ctx.drawImage(frame, 0, 0);
+          st.decoded++;
+          const cap = capMap.get(frame.timestamp);
+          if (cap !== undefined && cap > 0) { lat.push(t - cap); capMap.delete(frame.timestamp); }
+          const t0 = t0map.get(frame.timestamp);
+          if (t0 !== undefined) { dect.push(performance.now() - t0); t0map.delete(frame.timestamp); }
+          bc.read(frame, frame.displayWidth, frame.displayHeight, t);
+          frame.close();
+        },
+        error(e) { st.errors++; st.lastError = String(e); waitingKey = true; },
+      });
+      try { dec.configure(cfg); } catch (e) { st.lastError = 'configure: ' + e; }
+      return;
+    }
+    const dv = new DataView(ev.data);
+    const typ = dv.getUint8(0), cap = dv.getFloat64(1, true), send = dv.getFloat64(9, true), media = dv.getFloat64(17, true);
+    const now = clock.now();
+    net.push(now - send); if (cap > 0) srv.push(send - cap);
+    st.recv++; st.bytes += ev.data.byteLength;
+    if (!dec || dec.state !== 'configured') { st.skipped++; return; }
+    if (dec.state === 'closed') return;
+    qsz.push(dec.decodeQueueSize);
+    if (waitingKey && typ !== 2) { st.skipped++; return; }
+    if (dec.decodeQueueSize > 6 && typ !== 2) { st.skipped++; waitingKey = true; return; }
+    waitingKey = false;
+    const ts = Math.round(media * 1000);   // µs, względne (tfdt), mapowane na czas przechwycenia
+    t0map.set(ts, performance.now()); capMap.set(ts, cap);
+    if (t0map.size > 300) { t0map.clear(); capMap.clear(); }
+    try {
+      dec.decode(new EncodedVideoChunk({ type: typ === 2 ? 'key' : 'delta', timestamp: ts, data: new Uint8Array(ev.data, 25) }));
+    } catch (e) { st.errors++; st.lastError = String(e); waitingKey = true; }
+  };
+  return {
+    name: 'webcodecs',
+    stop() { try { ws.close(); } catch (e) { /* */ } try { dec && dec.close(); } catch (e) { /* */ } },
+    stats() {
+      const n = performance.now(), dt = (n - lastT) / 1000;
+      if (dt >= 1) { fps = (st.decoded - lastDec) / dt; rfps = (st.recv - lastRecv) / dt; mbps = (st.bytes - lastBytes) * 8 / dt / 1e6; lastDec = st.decoded; lastRecv = st.recv; lastBytes = st.bytes; lastT = n; }
+      return {
+        test: 'webcodecs', codec: st.codec, configSupported: st.configSupported, decoderState: dec ? dec.state : '-',
+        video: cv.width + 'x' + cv.height, recv_fps: +r1(rfps), decoded_fps: +r1(fps), mbps: +r1(mbps),
+        lat_capture_to_decoded_ms: +r0(lat.med()), lat_p95_ms: +r0(lat.p95()), decode_ms: +r1(dect.med()),
+        lat_barcode_ms: +r0(bc.median()), barcode_ok: bc.ok, barcode_bad: bc.bad,
+        net_oneway_ms: +r1(net.med()), srv_capture_to_send_ms: +r1(srv.med()), decode_queue: +r1(qsz.avg()),
+        decoded: st.decoded, skipped: st.skipped, errors: st.errors, lastError: st.lastError, wsClosed: !!st.wsClosed,
+      };
+    },
+  };
+}
+
+// ------------------------------------------------------------------ Test C: WebRTC
+function startRTC() {
+  const v = $('v');
+  v.muted = true;
+  const st = { test: 'webrtc', state: 'new' };
+  let pc = null, receiver = null, prev = null, last = {}, rvfcOn = true, presented = 0, srvStats = {};
+  const jb = new Rolling(30);
+  (async () => {
+    try {
+      pc = new RTCPeerConnection({ iceServers: [] });
+      const tr = pc.addTransceiver('video', { direction: 'recvonly' });
+      try {
+        const caps = RTCRtpReceiver.getCapabilities('video').codecs;
+        const h = caps.filter((c) => /h264/i.test(c.mimeType)), rest = caps.filter((c) => !/h264/i.test(c.mimeType));
+        tr.setCodecPreferences(h.concat(rest));
+      } catch (e) { st.codecPrefErr = String(e); }
+      pc.onconnectionstatechange = () => { st.state = pc.connectionState; };
+      pc.ontrack = (e) => {
+        receiver = e.receiver;
+        try { receiver.jitterBufferTarget = 0; st.jbt = 'set'; } catch (err) { st.jbt = 'ERR'; }
+        try { receiver.playoutDelayHint = 0; } catch (err) { /* */ }
+        v.srcObject = (e.streams && e.streams[0]) || new MediaStream([e.track]);
+        v.play().catch(() => {});
+      };
+      await pc.setLocalDescription(await pc.createOffer());
+      await new Promise((res) => {
+        if (pc.iceGatheringState === 'complete') return res();
+        const to = setTimeout(res, 2500);
+        pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(to); res(); } });
+      });
+      const r = await fetch('/offer?' + srvParams(), { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type }) });
+      const ans = await r.json();
+      if (ans.error) throw new Error(ans.error);
+      st.pcId = ans.id;
+      addEventListener('pagehide', () => { try { navigator.sendBeacon('/rtc/close/' + ans.id); } catch (e) { /* */ } });
+      await pc.setRemoteDescription(ans);
+      const m = ans.sdp.match(/a=rtpmap:\d+ (H264|VP8|VP9|AV1)\/90000/);
+      st.negotiated = m ? m[1] : '?';
+    } catch (e) { st.lastError = String(e); }
+  })();
+  const statsTimer = setInterval(async () => {
+    if (!pc) return;
+    try {
+      const rep = await pc.getStats();
+      let inb = null, pair = null, codec = null;
+      rep.forEach((s) => {
+        if (s.type === 'inbound-rtp' && s.kind === 'video') inb = s;
+        if (s.type === 'candidate-pair' && (s.nominated || s.selected) && s.state === 'succeeded') pair = s;
+      });
+      if (inb && inb.codecId) { const c = rep.get(inb.codecId); codec = c && (c.mimeType + ' ' + (c.sdpFmtpLine || '')); }
+      if (inb) {
+        if (prev) {
+          const dE = inb.jitterBufferEmittedCount - prev.jitterBufferEmittedCount;
+          const dD = inb.jitterBufferDelay - prev.jitterBufferDelay;
+          const dF = inb.framesDecoded - prev.framesDecoded;
+          const dT = (inb.totalDecodeTime || 0) - (prev.totalDecodeTime || 0);
+          const dt = (inb.timestamp - prev.timestamp) / 1000;
+          if (dE > 0) jb.push(dD / dE * 1000);
+          last.decode_ms = dF > 0 ? dT / dF * 1000 : null;
+          last.fps = dF / dt;
+          last.mbps = ((inb.bytesReceived - prev.bytesReceived) * 8 / dt) / 1e6;
+          if (inb.totalProcessingDelay !== undefined && dE > 0) last.processing_ms = (inb.totalProcessingDelay - (prev.totalProcessingDelay || 0)) / dE * 1000;
+        }
+        prev = inb;
+        last.inb = inb; last.codec = codec;
+      }
+      last.rtt_ms = pair && pair.currentRoundTripTime !== undefined ? pair.currentRoundTripTime * 1000 : null;
+    } catch (e) { st.statsErr = String(e); }
+    try { srvStats = await (await fetch('/status')).json(); } catch (e) { /* */ }
+  }, 1000);
+  const rvLat = new Rolling(120);
+  if ('requestVideoFrameCallback' in v) {
+    const cb = (now, md) => {
+      if (!rvfcOn) return;
+      presented++;
+      const tDisp = clock.perfToServer(md.expectedDisplayTime || now);
+      bc.read(v, md.width || v.videoWidth, md.height || v.videoHeight, tDisp);
+      if (md.receiveTime && md.presentationTime) rvLat.push(md.presentationTime - md.receiveTime);
+      v.requestVideoFrameCallback(cb);
+    };
+    v.requestVideoFrameCallback(cb);
+  }
+  return {
+    name: 'webrtc',
+    stop() {
+      rvfcOn = false; clearInterval(statsTimer);
+      if (st.pcId) fetch('/rtc/close/' + st.pcId, { method: 'POST' }).catch(() => {});
+      try { pc && pc.close(); } catch (e) { /* */ } v.srcObject = null;
+    },
+    stats() {
+      const i = last.inb || {};
+      const srv = (srvStats.rtc || {}).capture_to_send_ms;
+      const jbm = jb.med();
+      return {
+        test: 'webrtc', state: st.state, negotiated: st.negotiated, codec: last.codec, decoder: i.decoderImplementation,
+        powerEfficientDecoder: i.powerEfficientDecoder, video: (i.frameWidth || 0) + 'x' + (i.frameHeight || 0),
+        decoded_fps: +r1(last.fps), mbps: +r1(last.mbps), framesDecoded: i.framesDecoded, framesDropped: i.framesDropped,
+        packetsLost: i.packetsLost, nackCount: i.nackCount, pliCount: i.pliCount, freezeCount: i.freezeCount,
+        jitter_buffer_ms: +r1(jbm), decode_ms: +r1(last.decode_ms), processing_ms: +r1(last.processing_ms),
+        rtt_ms: +r1(last.rtt_ms), receive_to_present_ms: +r1(rvLat.med()), srv_capture_to_send_ms: srv,
+        est_pipeline_ms: +r0((srv || 0) + (last.rtt_ms || 0) / 2 + (last.processing_ms || ((jbm || 0) + (last.decode_ms || 0)))),
+        lat_barcode_ms: +r0(bc.median()), barcode_ok: bc.ok, barcode_bad: bc.bad, jbt: st.jbt, lastError: st.lastError,
+      };
+    },
+  };
+}
+
+// ------------------------------------------------------------------ runner
+const KEY_FIELDS = ['lat_barcode_ms', 'lat_rvfc_ms', 'lat_media_ms', 'lat_capture_to_decoded_ms', 'est_pipeline_ms',
+  'jitter_buffer_ms', 'decode_ms', 'buffer_ahead_ms', 'net_oneway_ms', 'srv_capture_to_send_ms', 'rtt_ms'];
+function renderStats(s) {
+  const lines = [];
+  for (const k of Object.keys(s)) {
+    if (s[k] === undefined || s[k] === null || s[k] === '') continue;
+    const val = typeof s[k] === 'object' ? JSON.stringify(s[k]) : String(s[k]);
+    const line = (k + ':').padEnd(24) + val.slice(0, 42);
+    lines.push(KEY_FIELDS.includes(k) ? '<b>' + line + '</b>' : line.replace(/</g, '&lt;'));
+  }
+  $('stats').innerHTML = lines.join('\n');
+}
+function startTest(name, audio) {
+  if (name === 'webcodecs') { showStage('canvas'); return startWC(); }
+  showStage('video');
+  if (name === 'webrtc') return startRTC();
+  return startMSE(audio);
+}
+async function runTest(name, audio, durSec) {
+  const t = startTest(name, audio);
+  current = t;
+  bc.lat = []; bc.ok = 0; bc.bad = 0;
+  $('banner').textContent = t.name + (durSec ? ` (auto, ${durSec}s)` : '') + ' — Back = menu';
+  const t0 = performance.now();
+  let lastRep = performance.now();
+  return new Promise((resolve) => {
+    const iv = setInterval(async () => {
+      const s = t.stats();
+      window.__stats = s;
+      renderStats(s);
+      const n = performance.now();
+      if (n - lastRep > 5000) { lastRep = n; post({ kind: 'stats', session: SESSION, test: t.name, ua: navigator.userAgent, stats: s }); }
+      if (durSec && n - t0 > durSec * 1000) {
+        clearInterval(iv);
+        await post({ kind: 'summary', session: SESSION, test: t.name, ua: navigator.userAgent, stats: s });
+        t.stop();
+        resolve(s);
+      }
+    }, 250);
+  });
+}
+
+(async function main() {
+  renderMenu();
+  try { await clock.sync(15); } catch (e) { /* serwer niedostępny? */ }
+  clock.startAuto(20000);
+  requestAnimationFrame(tickClock);
+  await runCaps();
+  const test = Q.get('test');
+  if (!test) return;
+  const audio = Q.get('audio') === '1';
+  if (test === 'auto') {
+    const dur = +(Q.get('dur') || 30);
+    const res = {};
+    for (const n of ['mse', 'webcodecs', 'webrtc']) {
+      res[n] = await runTest(n, false, dur);
+      await new Promise((ok) => setTimeout(ok, 1500));
+    }
+    window.__auto = res;
+    await post({ kind: 'summary', session: SESSION, test: 'auto-all', ua: navigator.userAgent, stats: res });
+    $('banner').textContent = 'AUTO zakończone — wyniki wysłane na serwer. Back = menu';
+    $('stats').textContent = Object.entries(res).map(([k, s]) =>
+      `${k}: barcode=${s.lat_barcode_ms} est=${s.est_pipeline_ms ?? s.lat_capture_to_decoded_ms} fps=${s.decoded_fps ?? s.presented_fps}`).join('\n');
+    window.__autoDone = true;
+    return;
+  }
+  runTest(test, audio, Q.get('dur') ? +Q.get('dur') : 0);
+})();
+</script>
+</body>
+</html>

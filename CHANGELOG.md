@@ -1,0 +1,52 @@
+# Changelog
+
+All notable changes to AirLinx are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-11-10
+
+First public release.
+
+### Added
+
+- Screen mirroring over Google Cast: a whole monitor or a single window, with cursor and sound, using the TV's built-in Cast mirroring receiver (CASTv2 over TLS, AES-CTR encrypted RTP/RTCP). Measured on a Samsung S85F: 1080p at 60 fps, 12 Mb/s, about 111 ms screen to TV.
+- Cast device authentication: the TV signs a challenge with its device certificate, the chain is checked against the embedded Cast and Eureka root CAs, and the device identity is pinned on first use (TOFU) in `~/.config/airlinx/known_tvs.json`. A changed identity stops the connection and offers a "trust again" flow.
+- DLNA fallback for mirroring (MPEG-TS over HTTP) when Cast mirroring is unavailable.
+- Video encoding with NVIDIA NVENC, falling back to libx264 on the CPU for both Cast and DLNA mirroring. The settings screen shows the encoder in use.
+- Quality profiles "Gra / praca", "Balans" and "Kino", plus a manual bitrate from 6 to 40 Mb/s. Changing quality or source during a session restarts only the encoder.
+- Live statistics (latency, frame rate, bitrate, resolution, RTT) and a per-stage latency breakdown.
+- Automatic reconnect (three attempts) while the receiver session is still alive.
+- Media playback through the Cast Default Media Receiver or DLNA AVTransport: a queue of local files and URLs, direct play, on-the-fly remux (for example MKV to fragmented MP4 for Cast) or transcode, chosen per file with ffprobe. Pause, seek, next item and TV volume.
+- Text subtitles (SRT, ASS, WebVTT) from a sidecar file or embedded MKV tracks, selectable during playback.
+- Audio source selection: system output, a microphone, both mixed, or a single application. Single-app capture uses a temporary null sink, and the original routing is restored when streaming stops or on the next start after a crash.
+- TV discovery over mDNS and SSDP, with manual entry by IP address.
+- A prompt before interrupting an app that is already running on the TV.
+- GTK window with a WebKit-hosted UI (Polish), a StatusNotifierItem tray icon, single-instance behaviour, and close-to-tray. Quit always sends STOP to the TV.
+- Per-user installer `install.sh` with its own virtual environment, menu entry, icons, optional autostart (`--autostart`) and `--uninstall`.
+- Warning when the app runs in a Wayland session, which is not supported.
+- Polish landing page in `site/`, terms of use and privacy policy.
+- Offline test suite, Playwright e2e tests for the UI mock and the landing page, `install.sh` tests, opt-in live TV tests, and GitHub Actions CI.
+
+### Security
+
+- No fallback from Cast to DLNA after a failed Cast device authentication, a changed TV identity, a denied permission or a pending permission prompt.
+- A TV with a pinned Cast identity is never downgraded to unauthenticated DLNA silently: the user is asked first. The same applies when a pinned TV shows up without Cast.
+- Failing closed when the pin store (`known_tvs.json`) cannot be read.
+- The Cast media receiver is authenticated before it is given a media URL.
+- The local media server publishes each file under a random, unguessable token, supports only the methods the TVs need, rejects hostile requests, and unpublishes URLs when playback ends. Tokens are masked in logs.
+- `known_tvs.json` is written with mode 0600.
+
+### Known issues
+
+- Only X11 sessions are supported. Wayland is detected and a warning is shown, but screen capture does not work there.
+- The "Balans" and "Kino" profiles are experimental and their latency has not been measured.
+- Tested on one TV only (Samsung S85F).
+- File playback and DLNA mirroring use unencrypted HTTP in the LAN, protected only by a random token in the URL.
+- Latency of DLNA mirroring and of the libx264 encoder has not been measured. There is no VAAPI encoder for AMD and Intel GPUs.
+- Image-based subtitles (PGS, DVB) are not supported.
+
+[Unreleased]: https://github.com/TymonPawelczyk/AirLinx/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/TymonPawelczyk/AirLinx/releases/tag/v0.1.0
