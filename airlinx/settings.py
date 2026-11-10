@@ -95,9 +95,9 @@ def _migrate(data: dict) -> dict:
         data["audio"] = audio
         data["version"] = ver = 2
     if ver < 3:  # v3: video codec; existing users stay on H.264 whatever the default becomes later
-        mirror = data.get("mirror") if isinstance(data.get("mirror"), dict) else {}
-        mirror.setdefault("codec", "h264")
-        data["mirror"] = mirror
+        mirror_sec: dict = data["mirror"] if isinstance(data.get("mirror"), dict) else {}
+        mirror_sec.setdefault("codec", "h264")
+        data["mirror"] = mirror_sec
         data["version"] = 3
     return data
 

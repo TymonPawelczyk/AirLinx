@@ -589,6 +589,8 @@ class MirrorSession:
         vkeys = StreamKeys.random()
         akeys = StreamKeys.random() if want_audio else None
         info: Optional[AnswerInfo] = None
+        codec, encoder, gpu = plan[0]
+        n = 0
         for n, (codec, encoder, gpu) in enumerate(plan):
             offer = build_offer(video=vkeys, audio=akeys, width=out_w, height=out_h, fps=eff.fps,
                                 bitrate=eff.bitrate, target_delay_ms=eff.target_delay_ms, codec=codec)

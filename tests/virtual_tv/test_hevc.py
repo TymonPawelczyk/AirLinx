@@ -16,8 +16,8 @@ from airlinx.core import models  # noqa: E402
 from airlinx.core.cast import mirror as mirror_mod  # noqa: E402
 from airlinx.core.cast.mirror import MirrorSession  # noqa: E402
 
-import vtvkit  # noqa: E402
-from vtvkit import decode_errors, ffprobe_frames, make_device, synthetic_source, wait_until  # noqa: E402
+import vtvkit  # noqa: E402  # pyright: ignore[reportMissingImports]
+from vtvkit import decode_errors, ffprobe_frames, make_device, synthetic_source, wait_until  # noqa: E402  # pyright: ignore[reportMissingImports]
 
 LIVE_DEADLINE_S = 15
 

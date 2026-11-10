@@ -3,6 +3,7 @@ import asyncio
 import random
 import shutil
 import subprocess
+from typing import Any
 
 import pytest
 
@@ -256,7 +257,7 @@ def test_hevc_encoder_choice():
 
 
 # ---------------------------------------------------------------------------------- reader
-PARAMS = dict(geometry=(0, 0, 64, 64), out_w=64, out_h=64, encoder="hevc_nvenc")
+PARAMS: dict[str, Any] = dict(geometry=(0, 0, 64, 64), out_w=64, out_h=64, encoder="hevc_nvenc")
 
 
 def test_video_capture_delivers_hevc_frames_with_keyflags_and_rising_capture_times(monkeypatch, tmp_path,
