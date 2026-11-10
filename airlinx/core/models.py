@@ -39,6 +39,7 @@ class MirrorOptions:
     bitrate: int = 12_000_000
     audio: bool = True
     target_delay_ms: int = 100
+    codec: Literal["auto", "h264", "hevc"] = "h264"   # auto = HEVC when the TV and ffmpeg can, else H.264
     # what the TV hears (core/audio.py); persisted in settings "audio", not "mirror"
     audio_source: str = "system"           # "system" | "mic" | "system_mic" | "app"
     audio_mic: str = "default"             # pulse source name or "default"
