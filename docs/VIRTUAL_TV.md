@@ -22,7 +22,7 @@ tools/virtual_tv/netns.sh --dev-trust -- .venv/bin/python -m airlinx --debug   #
 ```
 
 CLI: `python -m tools.virtual_tv --cast --dlna [--show] [--fail=auth|cert|busy|noport|hang|pending]
-[--name "Wirtualny TV"] [--host IP] [--out DIR] [--advertise]`. Recordings go to `--out`:
+[--codecs h264,hevc] [--name "Wirtualny TV"] [--host IP] [--out DIR] [--advertise]`. Recordings go to `--out`:
 `cast/video.h264` (Annex-B), `cast/audio.opus` (Ogg), `cast/media/` (downloaded files), `dlna/`, and a
 machine-readable `cast/events.jsonl`.
 
@@ -50,6 +50,14 @@ AirLinx (MirrorSession, CastMediaPlayer, DlnaPlayer, MediaServer, Discovery)
 - The Default Media Receiver answers the first message of a LOAD like Chrome's receiver: BUFFERING is a
   broadcast, the reply carrying the LOAD's `requestId` is MEDIA_STATUS (or LOAD_FAILED) once the URL was fetched.
   For LAUNCH of CC1AD845 the first reply must be RECEIVER_STATUS (pychromecast drops its callback otherwise).
+
+### Video codecs
+
+The receiver accepts `h264` and `hevc` in an OFFER (the S85F advertises `hevc` in its `mediaCaps`), answers for the first
+acceptable video stream the sender listed, and records `cast/video.h264` or `cast/video.h265` (demuxers `-f h264` /
+`-f hevc`). `--codecs h264` restricts it to test negotiation (an OFFER without an acceptable video stream gets an
+ANSWER with `result:"error"`). `tests/virtual_tv/test_codecs.py` drives the receiver with a raw sender (a real
+libx264/libx265 stream through AirLinx's RTP packetizer); the `MirrorSession` HEVC test is skipped until the sender can offer hevc.
 
 ### Failure modes (`--fail=` / `CastReceiver(fail=...)`)
 
@@ -121,6 +129,9 @@ The GUI works in the namespace too (X over the filesystem socket); that path is 
 | `test_netns.py` + `netns_scenario.py` | isolation, real discovery at 10.77.0.2, manual add, mirror + Cast + DLNA playback, media URL host = PC address, unknown token 404 |
 | `test_cli.py` | banner, ready file, public-only root PEM, SIGINT, `noport` |
 | `test_latency.py` | latency baseline; `VTV_WRITE_BASELINE=1` rewrites `docs/perf/virtual-tv-latency-baseline.md` |
+
+The Cast fixtures are a pytest plugin (`tests/virtual_tv/cast_fixtures.py`, loaded by `-p` in `pytest.ini`), so the
+directory's `conftest.py` stays free for other contributors.
 
 The hook's own safety tests are in the default suite: `tests/test_dev_cast_root.py`. Screen and audio are lavfi
 test signals patched into `capture.py`, so the tests need `ffmpeg` but no X server, PulseAudio or GPU.

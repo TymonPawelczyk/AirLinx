@@ -130,6 +130,8 @@ class StreamRecorder:
 
     def __init__(self, out_dir: Optional[Path], show: bool = False) -> None:
         self.out_dir = out_dir
+        self.out_dir_ = out_dir
+        self.video_codec = "h264"
         self.video_path = out_dir / "video.h264" if out_dir else None
         self.audio_path = out_dir / "audio.opus" if out_dir else None
         self._vf = None
@@ -141,6 +143,12 @@ class StreamRecorder:
         if out_dir:
             out_dir.mkdir(parents=True, exist_ok=True)
 
+    def set_video_codec(self, codec: str) -> None:
+        """"h264" -> video.h264, "hevc" -> video.h265 (Annex-B elementary stream, demuxer ``-f h264`` / ``-f hevc``)."""
+        self.video_codec = codec
+        if self.out_dir_:
+            self.video_path = self.out_dir_ / ("video.h265" if codec == "hevc" else "video.h264")
+
     def video(self, annexb: bytes) -> None:
         self.video_bytes += len(annexb)
         if self.video_path:
@@ -149,7 +157,8 @@ class StreamRecorder:
             self._vf.write(annexb)
         if self._show:
             if self._player is None:
-                self._player = FfplaySink("h264", "Wirtualny TV (AirLinx)", ["-framerate", "60"])
+                self._player = FfplaySink("hevc" if self.video_codec == "hevc" else "h264", "Wirtualny TV (AirLinx)",
+                                          ["-framerate", "60"])
             self._player.write(annexb)
 
     def audio(self, packet: bytes) -> None:

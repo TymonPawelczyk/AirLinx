@@ -100,6 +100,7 @@ class StreamSpec:
     pt: int
     timebase: int
     target_delay_ms: int
+    codec: str = "h264"        # video: "h264" | "hevc"
 
 
 @dataclass

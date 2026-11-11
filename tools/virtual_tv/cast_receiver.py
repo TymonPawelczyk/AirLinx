@@ -71,12 +71,13 @@ class CastReceiver:
                  fail: Optional[str] = None, out_dir: Optional[Path] = None, show: bool = False,
                  pki: Optional[pkimod.TestPki] = None, pending_s: float = 5.0, launch_delay: float = 0.3,
                  eureka_port: Optional[int] = None, drop: Optional[Callable] = None,
-                 media_realtime: bool = True) -> None:
+                 media_realtime: bool = True, codecs: tuple = ("h264", "hevc")) -> None:
         if fail is not None and fail not in FAIL_MODES:
             raise ValueError(f"unknown failure mode {fail!r}; one of {FAIL_MODES}")
         self.host, self.port, self.name, self.model = host, port, name, model
         self.device_id = device_id or uuid.uuid4().hex
         self.fail = fail
+        self.codecs = tuple(codecs)      # video codecs accepted in an OFFER (CLI --codecs)
         self.out_dir = out_dir
         self.show = show
         self.pki = pki or pkimod.TestPki(f"VTV-{self.device_id[:8].upper()}")
@@ -443,8 +444,8 @@ class CastReceiver:
         specs: list[StreamSpec] = []
         for s in streams:
             kind = {"video_source": "video", "audio_source": "audio"}.get(s.get("type"))
-            codec = {"video": "h264", "audio": "opus"}.get(kind or "")
-            if kind is None or s.get("codecName") != codec:
+            name = s.get("codecName")
+            if kind is None or (name not in self.codecs if kind == "video" else name != "opus"):
                 continue
             try:
                 key, iv = bytes.fromhex(s["aesKey"]), bytes.fromhex(s["aesIvMask"])
@@ -462,9 +463,11 @@ class CastReceiver:
                                     key=key, iv_mask=iv, pt=int(s.get("rtpPayloadType", VIDEO_PT if kind == "video"
                                                                        else AUDIO_PT)),
                                     timebase=int(str(tb).split("/")[1]) if "/" in str(tb) else 90000,
-                                    target_delay_ms=int(s.get("targetDelay", 100))))
+                                    target_delay_ms=int(s.get("targetDelay", 100)),
+                                    codec=name if kind == "video" else "opus"))
         if not any(s.kind == "video" for s in specs):
-            raise ValueError("no supported video stream (h264 required)")
+            raise ValueError(f"no supported video stream (accepted: {', '.join(self.codecs)})")
+        self.recorder.set_video_codec(next(s.codec for s in specs if s.kind == "video"))
         if self.plane:                      # renegotiation on the same app session: new OFFER, new UDP plane
             self.plane.close()
         plane = MediaPlane(specs, self.recorder, host=self.host, drop=self.drop)
@@ -473,7 +476,7 @@ class CastReceiver:
         self.planes.append(plane)
         res = (streams[0].get("resolutions") or [{}])[0]
         self._ev("answer", udp_port=port, streams=[s.kind for s in specs], resolution=res,
-                 max_bitrate=streams[0].get("maxBitRate"), target_delay=streams[0].get("targetDelay"))
+                 codecs=[s.codec for s in specs], max_bitrate=streams[0].get("maxBitRate"), target_delay=streams[0].get("targetDelay"))
         return {"type": "ANSWER", "result": "ok",
                 "answer": {"display": {"dimensions": {"frameRate": "60", "height": 2160, "width": 3840},
                                        "scaling": "sender"},

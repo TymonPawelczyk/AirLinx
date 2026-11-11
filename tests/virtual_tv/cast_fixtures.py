@@ -1,4 +1,5 @@
-"""Virtual-TV end-to-end tests (marker ``vtv``; opt-in: ``pytest -m vtv tests/virtual_tv``).
+"""Cast-side fixtures of the virtual-TV tests, loaded as a plugin (``-p cast_fixtures`` in pytest.ini) so that
+the directory's conftest.py can belong to other contributors. Virtual-TV end-to-end tests (marker ``vtv``; opt-in: ``pytest -m vtv tests/virtual_tv``).
 
 Everything here talks to a receiver that lives in this process on 127.0.0.1. It never touches the LAN:
 no mDNS/SSDP is sent, nothing connects to a real device.

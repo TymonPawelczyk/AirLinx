@@ -174,3 +174,107 @@ def make_controller(tmp_path, devices, *, discovery=None, settings_patch: Option
 
 def errors_of(events) -> list[dict]:
     return [p for e, p in events if e == "error"]
+
+
+# ---------------------------------------------------------------------------------------------- raw sender
+def split_access_units(data: bytes, codec: str) -> list[tuple[bytes, bool]]:
+    """Annex-B stream with AUD NALs -> [(access unit, is_keyframe)]. AUDs: h264 type 9, hevc type 35."""
+    import re as _re
+    starts = [m.start() for m in _re.finditer(b"\x00\x00\x01", data)]
+    nals = []
+    for i, st in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(data)
+        begin = st - 1 if st > 0 and data[st - 1] == 0 else st
+        nals.append((begin, end, data[st + 3]))
+    aus, cur, key = [], b"", False
+    for begin, end, hdr in nals:
+        typ = (hdr >> 1) & 0x3F if codec == "hevc" else hdr & 0x1F
+        if typ == (35 if codec == "hevc" else 9) and cur:
+            aus.append((cur, key))
+            cur, key = b"", False
+        cur += data[begin:end]
+        if (codec == "hevc" and 16 <= typ <= 21) or (codec == "h264" and typ == 5):
+            key = True
+    if cur:
+        aus.append((cur, key))
+    return aus
+
+
+def encode_stream(codec: str, seconds: float = 1.5, fps: int = 30, size: str = "640x360") -> bytes:
+    """A short elementary stream (Annex-B, AUDs inserted, no B-frames, keyframe every 15 frames)."""
+    if codec == "hevc":
+        enc = ["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "keyint=15:bframes=0:log-level=none",
+               "-bsf:v", "hevc_metadata=aud=insert", "-f", "hevc"]
+    else:
+        enc = ["-c:v", "libx264", "-preset", "ultrafast", "-bf", "0", "-g", "15", "-pix_fmt", "yuv420p",
+               "-bsf:v", "h264_metadata=aud=insert", "-f", "h264"]
+    r = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-f", "lavfi", "-i",
+                        f"testsrc2=size={size}:rate={fps}:duration={seconds}", *enc, "pipe:1"],
+                       capture_output=True, timeout=60)
+    assert r.returncode == 0 and r.stdout, r.stderr.decode()
+    return r.stdout
+
+
+def encoder_available(codec: str) -> bool:
+    name = "libx265" if codec == "hevc" else "libx264"
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True)
+    return name in r.stdout
+
+
+def offer_for(codecs: list[str], *, ssrc0: int = 1000, w: int = 640, h: int = 360, fps: int = 30) -> tuple[dict, list]:
+    """OFFER with one video stream per codec (index order = list order). Returns (offer, keys)."""
+    streams, keys = [], []
+    for i, c in enumerate(codecs):
+        key, iv = os.urandom(16), os.urandom(16)
+        keys.append((key, iv, ssrc0 + 10 * i))
+        streams.append({"index": i, "type": "video_source", "codecName": c, "rtpProfile": "cast",
+                        "rtpPayloadType": 96, "ssrc": ssrc0 + 10 * i, "maxFrameRate": f"{fps * 1000}/1000",
+                        "timeBase": "1/90000", "maxBitRate": 4_000_000, "profile": "main", "level": "4",
+                        "targetDelay": 100, "aesKey": key.hex(), "aesIvMask": iv.hex(), "receiverRtcpEventLog": True,
+                        "channels": 1, "resolutions": [{"width": w, "height": h}]})
+    return {"type": "OFFER", "offer": {"castMode": "mirroring", "receiverGetStatus": True,
+                                       "supportedStreams": streams}}, keys
+
+
+async def offer_only(tv, offer: dict, pin_key: str = "raw-sender"):
+    """Open a channel, LAUNCH mirroring, send ``offer``; returns (channel, app, answer dict)."""
+    from airlinx.core.cast import castv2 as cv
+    ch = await cv.CastChannel.open(tv.host, tv.port, heartbeat=False, pin_key=pin_key)
+    app = await ch.launch(cv.MIRRORING_APP_ID, timeout=10)
+    await ch.connect_virtual(app["transportId"])
+    ans = await ch.request(cv.NS_WEBRTC, offer, app["transportId"], id_field="seqNum", timeout=10)
+    return ch, app, ans
+
+
+async def send_stream(tv, codec: str, *, seconds: float = 1.5, fps: int = 30, size: str = "640x360") -> dict:
+    """Push a short real H.264 or HEVC stream through AirLinx's own RTP packetizer to the virtual TV
+    (no MirrorSession involved): checks the receiver by itself. Returns what was sent and the TV's plane."""
+    import socket
+    from airlinx.core.cast import castv2 as cv
+    from airlinx.core.cast.mirror import parse_answer
+    from airlinx.core.cast.rtp import StreamSender
+
+    w, h = (int(x) for x in size.split("x"))
+    data = await asyncio.to_thread(encode_stream, codec, seconds, fps, size)
+    aus = split_access_units(data, codec)
+    offer, [(key, iv, ssrc)] = offer_for([codec], w=w, h=h, fps=fps)
+    ch, app, ans = await offer_only(tv, offer)
+    try:
+        info = parse_answer(ans)
+        sender = StreamSender(kind="video", ssrc=ssrc, receiver_ssrc=info.receiver_ssrcs[0], pt=96, key=key,
+                              iv_mask=iv, timebase=90000, origin=time.monotonic(), target_delay_ms=100)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect((tv.host, info.udp_port))
+        t0 = time.monotonic()
+        for n, (au, key_frame) in enumerate(aus):
+            out = sender.build_frame(au, key_frame, t0 + n / fps, rtp_ts=n * 90000 // fps)
+            for p in out or []:
+                sock.send(p.data)
+            await asyncio.sleep(1 / fps)
+        plane = tv.plane
+        await wait_until(lambda: plane.stats()["video"]["frames"] >= len(aus), 5, "all frames at the receiver")
+        sock.close()
+        return {"sent": len(aus), "keyframes": sum(1 for _, k in aus if k), "plane": plane, "answer": ans}
+    finally:
+        await ch.stop_app(app["sessionId"])
+        await ch.close()

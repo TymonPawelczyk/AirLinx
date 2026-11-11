@@ -29,6 +29,11 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
                          "changes from the 2nd connection (tv_cert_changed), busy=another app is running (tv_busy), "
                          "noport=nothing listens on the Cast port (cast_unverified / downgrade guard), "
                          "hang=port open, no answer, pending=LAUNCH waits for consent (permission_pending)")
+    ap.add_argument("--codecs", default="h264,hevc",
+                    help="video codecs the Cast receiver accepts in an OFFER (default h264,hevc); "
+                         "restrict it to test negotiation, e.g. --codecs h264")
+    ap.add_argument("--netns", action="store_true",
+                    help="run inside the rootless two-namespace lab (needs the vtv-dlna module tools.virtual_tv.net)")
     ap.add_argument("--name", default="Wirtualny TV", help="friendly name (mDNS fn / UPnP friendlyName)")
     ap.add_argument("--host", default="127.0.0.1", help="address to listen on (default 127.0.0.1)")
     ap.add_argument("--cast-port", type=int, default=8009)
@@ -46,10 +51,23 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     a = ap.parse_args(argv)
     if not (a.cast or a.dlna):
         ap.error("pick at least one of --cast / --dlna")
+    a.codec_list = tuple(c.strip().lower() for c in a.codecs.split(",") if c.strip())
+    if not a.codec_list or any(c not in ("h264", "hevc") for c in a.codec_list):
+        ap.error("--codecs takes a comma list of h264, hevc")
     return a
 
 
 async def run(a: argparse.Namespace) -> int:
+    if a.netns:
+        try:
+            import importlib
+            importlib.import_module("tools.virtual_tv.net")
+        except ImportError:
+            print("--netns: not available yet (module tools.virtual_tv.net is missing); "
+                  "use tools/virtual_tv/netns.sh instead", file=sys.stderr)
+            return 4
+        print("--netns: run `python -m tools.virtual_tv.net run -- <cmd>` or tools/virtual_tv/netns.sh", file=sys.stderr)
+        return 4
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
                         format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S")
     if a.advertise:
@@ -67,7 +85,7 @@ async def run(a: argparse.Namespace) -> int:
     try:
         if a.cast:
             cast = CastReceiver(host=a.host, port=a.cast_port, name=a.name, fail=a.fail, out_dir=out / "cast",
-                                show=a.show, pending_s=a.pending_seconds,
+                                show=a.show, pending_s=a.pending_seconds, codecs=a.codec_list,
                                 eureka_port=a.eureka_port if a.eureka_port else None)
             await cast.start()
             root = Path(a.root_pem) if a.root_pem else out / "test-root-ca.pem"
