@@ -30,6 +30,7 @@ Zasady:
 | `assets/brand/` | logo (lockup, znak), ikona aplikacji |
 | `assets/tray/{16,22,24}/` | ikony AppIndicator `airlinx-{idle,streaming,error}-symbolic.svg` |
 | `assets/motion/` | animacja „łączenie” (SVG z CSS) |
+| `assets/shade/` | bitmapy 9-slice cienia pod telewizorem (`tv-dark.png`, `tv-light.png`), generuje je `scripts/gen_tv_shadow.py` |
 | `assets/fonts/` | Inter 400/500, JetBrains Mono 500/800 + licencje OFL 1.1 |
 | `shoot.py` | zrzuty Playwright 1100×720 (`python shoot.py [nazwa]`) |
 
@@ -168,12 +169,12 @@ Te wartości to szacunki projektowe do kalibracji w spike'u `spikes/cast_streami
 | Wskaźnik trybu Ekran/Multimedia | 320 ms sprężyna (transform + width) | ciągłość przestrzenna |
 | Arkusz, menu | wejście 260–340 ms sprężyna. Wyjście 140–220 ms, krótsze i subtelniejsze. | orientacja |
 | Radar odkrywania | pętla 3 s (4,5 s po znalezieniu TV), tylko na tym ekranie | aktywność w tle |
-| Wejście znalezionych TV | 500 ms, opóźnienie 120 ms, opacity + 8 px + blur 4 px | pojawienie się nowej treści |
+| Wejście znalezionych TV, paneli ustawień i szczegółów | 500 ms (panele 340 ms), opacity + 8 px (bez rozmycia, patrz §10) | pojawienie się nowej treści |
 | Łączenie | animacja marki, 1,6 s `--ease-io` | jedyna pętla w trakcie połączenia |
 | Włączenie matrycy | 900 ms: jasność 1,6 → 1, skala 1,012 → 1. Poświata wchodzi po 250 ms przez 1,1 s. | moment „telewizor gra” |
 | Panel „Szczegóły” | 340 ms opacity + translateY | pokazanie nowej treści |
 
-Animujemy wyłącznie `transform`, `opacity` i `filter`. Romb tally podczas transmisji stoi (BRAND.md §8).
+Animujemy wyłącznie `transform`, `opacity` i (tylko przy włączeniu matrycy) `filter: brightness/saturate`; żadnego animowanego `blur`. Romb tally podczas transmisji stoi (BRAND.md §8).
 Akcje z klawiatury nie mają dodatkowych animacji. Liczby na żywo zmieniają się bez animacji (cyfry stałej szerokości).
 
 `prefers-reduced-motion: reduce`: wszystkie przejścia i animacje skracamy do 0. Radar staje się statycznymi
@@ -226,3 +227,22 @@ przepływie: „Udostępnij ekran”, a później „Zatrzymaj”.
 4. Telemetria: host wysyła co 1 s `{latency_ms, fps, bitrate_mbps, stages_ms[4]}`. Kod widoku przesuwa okno
    60 próbek i przerysowuje `svg.spark`, tak jak `renderDetails()` w `app.js`.
 5. Tray: ikony z `assets/tray/` instaluje `docs/brand/final/icons/install-icons.sh`. Menu AppIndicator jest natywne, a nie HTML.
+
+## 10. Wydajność w WebKitGTK
+
+Pomiary i uzasadnienie: `docs/perf/ui.md`. Na oknie 4096×2304 px (monitor 4K przy skali 2×) WebKitGTK maluje stronę
+na CPU po stronie procesu WWW, a każda zmiana tekstu (liczby na żywo, zegar) przemalowuje okno. Dlatego:
+
+- **Żadnego `filter: blur()` na dużych elementach.** Poświata „bias light” jest rozmywana raz na miniaturę w
+  `bakeGlow()` (`app.js`) i wstawiana jako gotowy bitmap. Animowany blur też odpada (`@keyframes rise`).
+- **Żadnego dużego `box-shadow` z rozmyciem ani `inset` na dużych powierzchniach.** Obrys ramki TV i matrycy to
+  pseudoelementy z 1 px ramką, cień pod telewizorem to `border-image` z bitmapy (`assets/shade/`, wartości w
+  `tokens.css`: `--sh-*`). Cień arkusza ma mały promień (40 px).
+- **Ramka TV ma jednolity kolor** (`--bezel`), nie gradient: gradient na całej ramce był malowany pod matrycą.
+- **Dane na żywo rysujemy raz na sekundę**, razem z zegarem, i tylko wtedy, gdy tekst się zmienił (`setText`).
+  Próbki wykresu są co 1 s (60 próbek), dane z `mirror.stats` przychodzą ≤ 2/s.
+- `will-change` i `contain` nie dają tu nic zmierzalnego (sprawdzone), więc ich nie używamy.
+- Po zmianie CSS/JS dotykającej telewizora albo statystyk zmierz ponownie: `docs/perf/ui.md` opisuje narzędzie.
+- `prefers-reduced-motion`: przejścia mają `0s`, nie `.01ms`. Nawet tak krótkie przejście `visibility` kończy się
+  dopiero po następnej klatce i `focus()` tuż po otwarciu menu lub arkusza trafiał w ukryty element.
+

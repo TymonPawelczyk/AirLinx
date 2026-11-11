@@ -123,10 +123,14 @@ class Bridge:
             self._fail(call_id, method, e)
             return
         try:
-            payload = to_json(result)
-            self.call_in_gtk(self._resolve, call_id, payload, None)
+            # Serialize here (asyncio thread): a source list with thumbnails is >1 MB of JSON and
+            # json.dumps on the GTK main thread would stall the window.
+            script = self._resolve_script(call_id, to_json(result), None)
         except Exception as e:
             self._fail(call_id, method, e)
+            return
+        if script is not None:
+            self.call_in_gtk(self.eval_js, script)
 
     def _fail(self, call_id: Any, method: str, exc: BaseException) -> None:
         if isinstance(exc, AirlinxError):
@@ -135,13 +139,17 @@ class Bridge:
             log.error("rpc %s crashed", method, exc_info=exc)
         self.call_in_gtk(self._resolve, call_id, None, error_payload(exc))
 
-    def _resolve(self, call_id: Any, result: Any, error: Optional[dict]) -> None:
+    @staticmethod
+    def _resolve_script(call_id: Any, result: Any, error: Optional[dict]) -> Optional[str]:
         if call_id is None:
-            return
-        self.eval_js(
-            f"window.airlinx&&window.airlinx._resolve({_js_literal(call_id)},"
-            f"{_js_literal(result)},{_js_literal(error)});"
-        )
+            return None
+        return (f"window.airlinx&&window.airlinx._resolve({_js_literal(call_id)},"
+                f"{_js_literal(result)},{_js_literal(error)});")
+
+    def _resolve(self, call_id: Any, result: Any, error: Optional[dict]) -> None:
+        script = self._resolve_script(call_id, result, error)
+        if script is not None:
+            self.eval_js(script)
 
     # ------------------------------------------------------------------ events
     def emit(self, event: str, payload: Any = None) -> None:

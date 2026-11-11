@@ -1,0 +1,150 @@
+[
+ {
+  "anim": {
+   "go_live(power-on+glow)": {
+    "fps": 42.4,
+    "p95": 43,
+    "max": 75,
+    "over33": 19,
+    "n": 137
+   },
+   "open_picker": {
+    "fps": 35,
+    "p95": 121,
+    "max": 132,
+    "over33": 4,
+    "n": 31
+   },
+   "close_picker": {
+    "fps": 40.1,
+    "p95": 105,
+    "max": 105,
+    "over33": 3,
+    "n": 20
+   },
+   "open_menu": {
+    "fps": 55.4,
+    "p95": 24,
+    "max": 25,
+    "over33": 0,
+    "n": 32
+   },
+   "close_menu": {
+    "fps": 58.7,
+    "p95": 24,
+    "max": 31,
+    "over33": 0,
+    "n": 23
+   },
+   "open_settings": {
+    "fps": 62.4,
+    "p95": 17,
+    "max": 17,
+    "over33": 0,
+    "n": 56
+   },
+   "settings_tab": {
+    "fps": 63.1,
+    "p95": 17,
+    "max": 20,
+    "over33": 0,
+    "n": 42
+   }
+  },
+  "fps": 0,
+  "frame_med": 0,
+  "frame_p95": 0,
+  "frame_p99": 0,
+  "frame_max": 0,
+  "over33": 0,
+  "frames": 0,
+  "stalls50": 0,
+  "stall_ms": 0,
+  "stall_max": 0,
+  "el": 0,
+  "w": 1100,
+  "h": 720,
+  "scenario": "anim",
+  "policy": "always",
+  "cpu_pct": {
+   "ui": 4.5,
+   "WebKitNetworkPr": 0.0,
+   "WebKitWebProces": 50.5
+  },
+  "gpu_util": 16
+ },
+ {
+  "anim": {
+   "go_live(power-on+glow)": {
+    "fps": 24.3,
+    "p95": 148,
+    "max": 176,
+    "over33": 20,
+    "n": 82
+   },
+   "open_picker": {
+    "fps": 11.2,
+    "p95": 216,
+    "max": 216,
+    "over33": 4,
+    "n": 10
+   },
+   "close_picker": {
+    "fps": 18.4,
+    "p95": 215,
+    "max": 215,
+    "over33": 3,
+    "n": 9
+   },
+   "open_menu": {
+    "fps": 56,
+    "p95": 24,
+    "max": 24,
+    "over33": 0,
+    "n": 32
+   },
+   "close_menu": {
+    "fps": 58.8,
+    "p95": 23,
+    "max": 24,
+    "over33": 0,
+    "n": 23
+   },
+   "open_settings": {
+    "fps": 62.1,
+    "p95": 17,
+    "max": 31,
+    "over33": 0,
+    "n": 55
+   },
+   "settings_tab": {
+    "fps": 59.6,
+    "p95": 28,
+    "max": 38,
+    "over33": 1,
+    "n": 40
+   }
+  },
+  "fps": 0,
+  "frame_med": 0,
+  "frame_p95": 0,
+  "frame_p99": 0,
+  "frame_max": 0,
+  "over33": 0,
+  "frames": 0,
+  "stalls50": 0,
+  "stall_ms": 0,
+  "stall_max": 0,
+  "el": 0,
+  "w": 2048,
+  "h": 1152,
+  "scenario": "anim",
+  "policy": "always",
+  "cpu_pct": {
+   "ui": 5.4,
+   "WebKitNetworkPr": 0.0,
+   "WebKitWebProces": 60.8
+  },
+  "gpu_util": 45
+ }
+]

@@ -96,7 +96,8 @@
 .tv-row:nth-of-type(2) { animation-delay: 120ms; }
 .tv-row:hover { background: var(--fill-2); }
 .tv-row:focus-visible { border-radius: var(--r-lg); }
-@keyframes rise { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+/* bez filter: blur(): animowany blur dużego panelu (ustawienia, szczegóły) był malowany od nowa co klatkę */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .tv-ico { width: 44px; height: 44px; border-radius: var(--r-md); display: grid; place-items: center; background: var(--fill-2); color: var(--text); }
 .tv-row .t-name { font-size: 15px; font-weight: 600; }
 .tv-row .t-meta { color: var(--text-2); font-size: var(--fs-small); display: flex; gap: 10px; align-items: center; }
@@ -125,13 +126,22 @@
 
 /* telewizor: ramka (bezel) + matryca; matryca zawsze czarna */
 .tv { position: relative; isolation: isolate; }
-.tv-frame { position: relative; padding: 5px; border-radius: var(--r-xl); background: var(--bezel); box-shadow: var(--bezel-edge), var(--screen-shadow); }
-.screen { position: relative; aspect-ratio: 16 / 9; border-radius: 9px; overflow: hidden; background: var(--screen); color: var(--screen-text); box-shadow: inset 0 0 0 1px rgba(243,242,239,.035); }
+.tv-frame { position: relative; padding: 5px; border-radius: var(--r-xl); background: var(--bezel); }
+/* Obrys ramki i cień rysujemy pseudo-elementami (obrys 1px + border-image), a nie box-shadow: inset/rozmytym.
+   WebKitGTK maluje je przy każdej zmianie tekstu pod spodem i kosztowało to ~100 ms na klatkę. */
+.tv-frame::before { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 1px solid var(--bezel-line); border-top-color: var(--bezel-line-top); pointer-events: none; }
+.tv::after { content: ""; position: absolute; z-index: -1; pointer-events: none;
+  left: calc(var(--sh-in) - var(--sh-e)); right: calc(var(--sh-in) - var(--sh-e));
+  top: calc(var(--sh-in) + var(--sh-y) - var(--sh-e)); bottom: calc(var(--sh-in) - var(--sh-y) - var(--sh-e));
+  border: var(--sh-b) solid transparent; border-image: var(--sh-img) var(--sh-slice) fill / var(--sh-b) stretch; }
+.screen { position: relative; aspect-ratio: 16 / 9; border-radius: 9px; overflow: hidden; background: var(--screen); color: var(--screen-text); }
+.screen::before { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 1px solid rgba(243,242,239,.035); pointer-events: none; }
 .screen > .layer { position: absolute; inset: 0; }
 .scene { width: 100%; height: 100%; }
 
-/* poświata „bias light”: kolory treści rozlane po czerni wokół ramki */
-.glow { position: absolute; inset: -3% -6% -12%; z-index: -1; filter: blur(60px) saturate(1.7); opacity: 0; transition: opacity 1.1s var(--ease-out) .25s; pointer-events: none; }
+/* poświata „bias light”: kolory treści rozlane po czerni wokół ramki. Rozmycie jest wypieczone w bitmapie
+   (app.js bakeGlow), bez filter: blur() na dużym elemencie */
+.glow { position: absolute; inset: -3% -6% -12%; z-index: -1; opacity: 0; transition: opacity 1.1s var(--ease-out) .25s; pointer-events: none; }
 .glow svg { width: 100%; height: 100%; }
 
 .l-preview { transition: opacity 700ms var(--ease-out), filter 700ms var(--ease-out); opacity: .3; filter: saturate(.25) brightness(.8); }
@@ -179,7 +189,7 @@
 .app[data-mode="ekran"][data-session="live"] .l-preview { opacity: 1; filter: none; }
 .app[data-mode="ekran"][data-session="live"] .glow.g-desktop { opacity: var(--glow-opacity); }
 .app[data-mode="ekran"][data-session="lost"] .l-preview { opacity: .45; filter: grayscale(1) brightness(.55); }
-.app[data-mode="ekran"][data-session="lost"] .glow.g-desktop { opacity: .12; transition-delay: 0s; filter: blur(46px) grayscale(1); }
+.app[data-mode="ekran"][data-session="lost"] .glow.g-desktop { opacity: .12; transition-delay: 0s; filter: grayscale(1); }
 .app[data-mode="ekran"][data-session="permission"] .l-preview,
 .app[data-mode="ekran"][data-session="connecting"] .l-preview { opacity: .12; }
 .app[data-mode="media"][data-media="empty"] .l-drop,

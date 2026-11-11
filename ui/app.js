@@ -229,7 +229,7 @@
     $('#src-title').textContent = lab.name;
     const thumb = src && src.thumbnail_png;
     $$('.src-thumb').forEach(img => { if (thumb) img.src = thumb; else img.removeAttribute('src'); img.hidden = !thumb; });
-    setImg($('#preview-img'), thumb); setImg($('#glow-src'), thumb);
+    setImg($('#preview-img'), thumb); setGlow($('#glow-src'), thumb);
     $('#preview-empty').hidden = !!thumb;
     $('#preview-empty-name').textContent = sourcesLoading ? 'Zbieram podgląd…' : lab.name;
 
@@ -260,6 +260,66 @@
     else { img.removeAttribute('src'); img.hidden = true; }
   }
 
+  /* Poświata „bias light”: rozmycie liczymy raz na miniaturę (mały bitmap + gaussian w JS), a nie żywym
+     filter: blur(60px) na elemencie 800×465. Filtr kosztował ~100 ms za każdą zmianę tekstu pod nim (WebKitGTK).
+     Bitmap ma 64×37 jednostek treści + margines P na rozmycie; .glow-img w live.css ma te same proporcje. */
+  const GLOW = { w: 64, h: 37, sigma: 4.8, sat: 1.7 };
+  GLOW.pad = Math.ceil(GLOW.sigma * 2.5);
+  function bakeGlow(src) {
+    return new Promise(resolve => {
+      const im = new Image();
+      im.onload = () => {
+        const { w, h, pad, sigma, sat } = GLOW, W = w + 2 * pad, H = h + 2 * pad;
+        const c = document.createElement('canvas'); c.width = W; c.height = H;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        const k = Math.max(w / im.naturalWidth, h / im.naturalHeight);      // object-fit: cover
+        g.imageSmoothingQuality = 'high';
+        g.drawImage(im, pad + (w - im.naturalWidth * k) / 2, pad + (h - im.naturalHeight * k) / 2, im.naturalWidth * k, im.naturalHeight * k);
+        g.clearRect(0, 0, W, pad); g.clearRect(0, H - pad, W, pad); g.clearRect(0, 0, pad, H); g.clearRect(W - pad, 0, pad, H);
+        const d = g.getImageData(0, 0, W, H), px = d.data;
+        const n = W * H, ch = [0, 1, 2, 3].map(() => new Float32Array(n));
+        for (let i = 0; i < n; i++) {                                    // saturate(1.7) + premultiply
+          const r = px[4 * i], gg = px[4 * i + 1], b = px[4 * i + 2], a = px[4 * i + 3] / 255;
+          ch[0][i] = (0.213 + 0.787 * sat) * r + (0.715 - 0.715 * sat) * gg + (0.072 - 0.072 * sat) * b;
+          ch[1][i] = (0.213 - 0.213 * sat) * r + (0.715 + 0.285 * sat) * gg + (0.072 - 0.072 * sat) * b;
+          ch[2][i] = (0.213 - 0.213 * sat) * r + (0.715 - 0.715 * sat) * gg + (0.072 + 0.928 * sat) * b;
+          ch[3][i] = a;
+          ch[0][i] *= a; ch[1][i] *= a; ch[2][i] *= a;
+        }
+        const R = Math.ceil(sigma * 3), ker = new Float32Array(2 * R + 1);
+        let sum = 0; for (let i = -R; i <= R; i++) sum += ker[i + R] = Math.exp(-i * i / (2 * sigma * sigma));
+        for (let i = 0; i < ker.length; i++) ker[i] /= sum;
+        const tmp = new Float32Array(n);
+        for (const a of ch) {
+          for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {       // poziomo
+            let v = 0; for (let j = -R; j <= R; j++) { const xx = x + j; if (xx >= 0 && xx < W) v += a[y * W + xx] * ker[j + R]; }
+            tmp[y * W + x] = v;
+          }
+          for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {       // pionowo
+            let v = 0; for (let j = -R; j <= R; j++) { const yy = y + j; if (yy >= 0 && yy < H) v += tmp[yy * W + x] * ker[j + R]; }
+            a[y * W + x] = v;
+          }
+        }
+        for (let i = 0; i < n; i++) {                                    // un-premultiply
+          const a = ch[3][i];
+          px[4 * i + 3] = Math.round(Math.min(1, a) * 255);
+          for (let q = 0; q < 3; q++) px[4 * i + q] = a > 0.002 ? Math.max(0, Math.min(255, ch[q][i] / a)) : 0;
+        }
+        g.putImageData(d, 0, 0);
+        resolve(c.toDataURL('image/png'));
+      };
+      im.onerror = () => resolve(null);
+      im.src = src;
+    });
+  }
+  function setGlow(img, src) {
+    if (!img) return;
+    if (!src) { img.removeAttribute('src'); img.hidden = true; delete img.dataset.from; return; }
+    if (img.dataset.from === src) return;
+    img.dataset.from = src;
+    bakeGlow(src).then(url => { if (img.dataset.from !== src) return; if (url) { img.src = url; img.hidden = false; } else img.hidden = true; });
+  }
+
   function tickClock() {
     const m = S && S.mirror;
     if (!m) return;
@@ -270,59 +330,85 @@
   }
 
   /* ---------------------------------------------------------------- statystyki i telemetria */
+  /* Telemetria przychodzi ≤ 2/s, ale rysujemy ją raz na sekundę, razem z zegarem (jedno przemalowanie na
+     sekundę zamiast trzech). Próbki wykresu też są co 1 s, jak w DESIGN.md (60 próbek). Pierwsza próbka
+     po starcie sesji jest pokazana od razu. */
+  let statsDirty = false, lastSample = 0;
   function onStats(st) {
     if (!st) return;
     const now = Date.now();
-    ui.series.push({ t: now, lat: st.latency_ms, br: (st.bitrate || 0) / 1e6 });
-    while (ui.series.length && ui.series[0].t < now - 60000) ui.series.shift();
-    if (S) { S.mirror.stats = st; renderStats(); }
+    if (now - lastSample >= 950) {
+      lastSample = now;
+      ui.series.push({ t: now, lat: st.latency_ms, br: (st.bitrate || 0) / 1e6 });
+      while (ui.series.length && ui.series[0].t < now - 60000) ui.series.shift();
+    }
+    if (!S) return;
+    const first = !S.mirror.stats;
+    S.mirror.stats = st;
+    if (first) renderStats(); else statsDirty = true;
   }
+  function paintTick() {
+    if (!S) return;
+    if (S.mirror.state === 'live' || S.mirror.state === 'waiting_tv') tickClock();
+    if (statsDirty) { statsDirty = false; renderStats(); }
+  }
+
+  // Zapis tylko przy zmianie: każda zmiana tekstu w WebKitGTK to osobne przemalowanie okna.
+  function setText(sel, v) { const el = $(sel); if (el.textContent !== v) el.textContent = v; }
+  let budgetKey = '';
 
   function renderStats() {
     const st = S.mirror.stats;
     const has = !!st;
-    $('#s-lat').textContent = has && st.latency_ms != null ? Math.round(st.latency_ms) : '—';
-    $('#s-fps').textContent = has ? Math.round(st.fps) : '—';
-    $('#s-br').textContent = has ? dec((st.bitrate || 0) / 1e6) : '—';
-    $('#s-res').textContent = has ? (st.height >= 2100 ? '4K' : `${st.height}p`) : '—';
-    $('#s-res-k').textContent = has ? `${st.width}×${st.height}${st.encoder ? ' · ' + codecOf(st.encoder) : ''}` : '';
-    $('#s-proto').textContent = has ? statsProto(st) + (st.rtt_ms != null ? ` · RTT ${dec(st.rtt_ms)} ms` : '') : protoName(S.mirror.protocol);
-    $('[data-act="details"]').setAttribute('aria-expanded', String(ui.details));
+    setText('#s-lat', has && st.latency_ms != null ? String(Math.round(st.latency_ms)) : '—');
+    setText('#s-fps', has ? String(Math.round(st.fps)) : '—');
+    setText('#s-br', has ? dec((st.bitrate || 0) / 1e6) : '—');
+    setText('#s-res', has ? (st.height >= 2100 ? '4K' : `${st.height}p`) : '—');
+    setText('#s-res-k', has ? `${st.width}×${st.height}${st.encoder ? ' · ' + codecOf(st.encoder) : ''}` : '');
+    setText('#s-proto', has ? statsProto(st) + (st.rtt_ms != null ? ` · RTT ${dec(st.rtt_ms)} ms` : '') : protoName(S.mirror.protocol));
+    const dBtn = $('[data-act="details"]'), exp = String(ui.details);
+    if (dBtn.getAttribute('aria-expanded') !== exp) dBtn.setAttribute('aria-expanded', exp);
     if (!ui.details) return;
     const ser = ui.series;
     const lats = ser.map(x => x.lat).filter(v => v != null);
-    $('#d-lat').textContent = lats.length ? Math.round(lats[lats.length - 1]) : '—';
-    $('#lat-range').textContent = lats.length ? `min ${Math.round(Math.min(...lats))} · maks ${Math.round(Math.max(...lats))}` : 'zbieram dane…';
+    setText('#d-lat', lats.length ? String(Math.round(lats[lats.length - 1])) : '—');
+    setText('#lat-range', lats.length ? `min ${Math.round(Math.min(...lats))} · maks ${Math.round(Math.max(...lats))}` : 'zbieram dane…');
     const brs = ser.map(x => x.br);
-    $('#d-br').textContent = brs.length ? dec(brs[brs.length - 1]) : '—';
+    setText('#d-br', brs.length ? dec(brs[brs.length - 1]) : '—');
     const target = (S.mirror.options.bitrate || 0) / 1e6;
-    $('#br-target').textContent = target ? `cel ${dec(target, 0)} Mb/s` : '';
+    setText('#br-target', target ? `cel ${dec(target, 0)} Mb/s` : '');
     drawSpark($('#spark-lat'), ser.map(x => x.lat), lats.length ? Math.min(...lats) - 8 : 0, lats.length ? Math.max(...lats) + 8 : 1, null);
     drawSpark($('#spark-br'), brs, target ? target * .4 : 0, Math.max(target * 1.25, ...brs, 1), target || null);
     const stages = (st && st.stages) || {};
     const keys = ['capture', 'encode', 'network', 'tv'];
-    keys.forEach(k => { const el = $(`[data-hop="${k}"]`); el.textContent = stages[k] != null ? `${Math.round(stages[k])} ms` : '—'; });
+    keys.forEach(k => setText(`[data-hop="${k}"]`, stages[k] != null ? `${Math.round(stages[k])} ms` : '—'));
     const total = keys.reduce((a, k) => a + (stages[k] || 0), 0);
-    $('#budget-total').textContent = total ? `${Math.round(total)} ms` : '—';
-    $('#budget-bar').innerHTML = total ? keys.map(k => `<i style="flex:${Math.max(stages[k] || 0, .5)}" class="${k === 'tv' ? 'major' : ''}"></i>`).join('') : '';
+    setText('#budget-total', total ? `${Math.round(total)} ms` : '—');
+    const bk = total ? keys.map(k => Math.max(stages[k] || 0, .5)).join() : '';
+    if (bk !== budgetKey) {
+      budgetKey = bk;
+      $('#budget-bar').innerHTML = total ? keys.map(k => `<i style="flex:${Math.max(stages[k] || 0, .5)}" class="${k === 'tv' ? 'major' : ''}"></i>`).join('') : '';
+    }
     const src = srcById(S.mirror.source_id);
-    $('#hop-cap').textContent = src ? `Przechwytywanie ${sourceLabel(src).name.replace(/^Monitor /, '')}` : 'Przechwytywanie';
-    $('#hop-enc').textContent = st ? encoderLabel(st.encoder) : 'NVENC';
-    $('#hop-net').textContent = st && st.loss ? `Utracone pakiety ${dec(st.loss * 100)}%` : (st && st.rtt_ms != null ? `RTT ${dec(st.rtt_ms)} ms` : 'Wi-Fi / LAN');
-    $('#details-note').textContent = st && /dlna/.test(st.protocol || '')
+    setText('#hop-cap', src ? `Przechwytywanie ${sourceLabel(src).name.replace(/^Monitor /, '')}` : 'Przechwytywanie');
+    setText('#hop-enc', st ? encoderLabel(st.encoder) : 'NVENC');
+    setText('#hop-net', st && st.loss ? `Utracone pakiety ${dec(st.loss * 100)}%` : (st && st.rtt_ms != null ? `RTT ${dec(st.rtt_ms)} ms` : 'Wi-Fi / LAN'));
+    setText('#details-note', st && /dlna/.test(st.protocol || '')
       ? 'Najwięcej czasu zajmuje bufor odtwarzacza DLNA w telewizorze. To stała cecha protokołu, a nie problem z siecią.'
-      : 'Najwięcej czasu zajmuje bufor odtwarzania odbiornika Google Cast w telewizorze. To stała część protokołu, a nie problem z siecią.';
+      : 'Najwięcej czasu zajmuje bufor odtwarzania odbiornika Google Cast w telewizorze. To stała część protokołu, a nie problem z siecią.');
   }
 
+  const sparkKey = new WeakMap();
   function drawSpark(svg, d, lo, hi, target) {
     const W = 240, H = 56;
-    if (d.length < 2) { svg.innerHTML = ''; return; }
+    if (d.length < 2) { svg.innerHTML = ''; sparkKey.delete(svg); return; }
     const span = (hi - lo) || 1;
     const x = i => (i * W / (d.length - 1)).toFixed(1);
     const y = v => (H - 4 - ((v == null ? lo : v) - lo) / span * (H - 10)).toFixed(1);
     const line = d.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v)).join('');
-    svg.innerHTML = (target != null ? `<line class="target" x1="0" x2="${W}" y1="${y(target)}" y2="${y(target)}"/>` : '') +
+    const html = (target != null ? `<line class="target" x1="0" x2="${W}" y1="${y(target)}" y2="${y(target)}"/>` : '') +
       `<path class="area" d="${line}L${W} ${H}L0 ${H}Z"/><path class="line" d="${line}"/>`;
+    if (sparkKey.get(svg) !== html) { sparkKey.set(svg, html); svg.innerHTML = html; }
   }
 
   /* ---------------------------------------------------------------- multimedia */
@@ -355,7 +441,7 @@
     $('#np-file').textContent = basename(item.path_or_url);
     const k = KIND[item.kind] || KIND.video;
     $('#np-badges').innerHTML = [k[1], S.media_protocol ? protoName(S.media_protocol) : ''].filter(Boolean).map((b, i) => `<span class="badge${i === 1 ? ' hot' : ''}">${esc(b)}</span>`).join('');
-    setImg($('#media-img'), item.thumbnail_png); setImg($('#glow-media'), item.thumbnail_png);
+    setImg($('#media-img'), item.thumbnail_png); setGlow($('#glow-media'), item.thumbnail_png);
     $('#media-poster').hidden = !!item.thumbnail_png;
     $('#poster-ico').setAttribute('href', '#' + k[0]);
     $('#poster-title').textContent = item.title;
@@ -916,7 +1002,7 @@
     toast(p.message, 'err');
   });
 
-  setInterval(() => { if (S && (S.mirror.state === 'live' || S.mirror.state === 'waiting_tv')) tickClock(); }, 1000);
+  setInterval(paintTick, 1000);
 
   /* ---------------------------------------------------------------- narzędzia deweloperskie (?dev=1) */
   function devAction(what) {
