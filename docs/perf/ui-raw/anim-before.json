@@ -1,0 +1,89 @@
+[
+ {
+  "anim": {
+   "go_live(power-on+glow)": {
+    "fps": 18.7,
+    "p95": 185,
+    "max": 201,
+    "over33": 20,
+    "n": 62
+   },
+   "open_picker": {
+    "fps": 10.1,
+    "p95": 335,
+    "max": 335,
+    "over33": 3,
+    "n": 9
+   },
+   "close_picker": {
+    "fps": 6.1,
+    "p95": 265,
+    "max": 265,
+    "over33": 3,
+    "n": 3
+   },
+   "open_menu": {
+    "fps": 15.1,
+    "p95": 263,
+    "max": 263,
+    "over33": 4,
+    "n": 9
+   },
+   "close_menu": {
+    "fps": 13.4,
+    "p95": 87,
+    "max": 87,
+    "over33": 3,
+    "n": 3
+   },
+   "open_settings": {
+    "fps": 40.7,
+    "p95": 50,
+    "max": 278,
+    "over33": 2,
+    "n": 36
+   },
+   "settings_tab": {
+    "fps": 32.9,
+    "p95": 49,
+    "max": 286,
+    "over33": 3,
+    "n": 22
+   }
+  },
+  "fps": 0,
+  "frame_med": 0,
+  "frame_p95": 0,
+  "frame_p99": 0,
+  "frame_max": 0,
+  "over33": 0,
+  "frames": 0,
+  "stalls50": 0,
+  "stall_ms": 0,
+  "stall_max": 0,
+  "el": 0,
+  "w": 1100,
+  "h": 720,
+  "scenario": "anim",
+  "policy": "always",
+  "cpu_pct": {
+   "ui": 2.4,
+   "WebKitNetworkPr": 0.0,
+   "WebKitWebProces": 75.8
+  },
+  "gpu_util": 19
+ },
+ {
+  "error": "TypeError: undefined is not an object (evaluating 's[Math.min(s.length-1, Math.floor(s.length*.95))].toFixed')",
+  "w": 2048,
+  "h": 1152,
+  "scenario": "anim",
+  "policy": "always",
+  "cpu_pct": {
+   "ui": 3.1,
+   "WebKitNetworkPr": 0.0,
+   "WebKitWebProces": 91.6
+  },
+  "gpu_util": 42
+ }
+]

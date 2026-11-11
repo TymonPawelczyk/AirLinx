@@ -530,9 +530,6 @@ def test_device_menu_keyboard_and_focus_return(new_tab, ui_url):
     expect(pill).to_be_focused()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: showMenu() calls focus() while the menu is still visibility:hidden "
-                                       "(ui/app.js showMenu), so opening the device menu from the keyboard leaves "
-                                       "focus on the pill instead of the current device")
 def test_device_menu_moves_focus_into_menu_on_open(new_tab, ui_url):
     tab = open_ui(new_tab, ui_url)
     to_work(tab)
@@ -564,9 +561,6 @@ def test_source_picker_traps_focus_and_restores_it(new_tab, ui_url):
     expect(opener).to_be_focused()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: with prefers-reduced-motion the dialog is still visibility:hidden when "
-                                       "openDialog() focuses it 30 ms later (ui/app.js), so keyboard focus stays "
-                                       "behind the dialog and the Tab trap never engages")
 def test_source_picker_takes_focus_with_reduced_motion(new_tab, ui_url):
     tab = open_ui(new_tab, ui_url, reduced_motion=True)
     to_work(tab)
