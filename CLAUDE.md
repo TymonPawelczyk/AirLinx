@@ -35,6 +35,10 @@ AIRLINX_TV_IP=<tv-ip> .venv/bin/python -m pytest -m tv tests/live   # real, idle
   (`?mock=nodevices|busy|slow`, `airlinx.mock.*`). Screenshots: `python ui/shoot.py [name]` (Playwright, 1100×720,
   output in `ui/shots/`).
 
+### Virtual TV
+
+`tools/virtual_tv` is a local Cast + DLNA receiver for end-to-end tests without a TV (`pytest -m vtv tests/virtual_tv`, CLI `python -m tools.virtual_tv`, isolated network `tools/virtual_tv/netns.sh`). See `docs/VIRTUAL_TV.md`. Its test root CA is trusted only with `AIRLINX_DEV=1` + `AIRLINX_DEV_CAST_ROOT`, never from settings.
+
 ### Live tests against the real TV
 
 `tests/live` (marker `tv`, needs `AIRLINX_TV_IP`) asserts on a real session. The older smoke scripts are
