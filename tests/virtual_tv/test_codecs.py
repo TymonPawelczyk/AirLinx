@@ -1,13 +1,17 @@
 """The receiver is codec-independent: H.264 and HEVC in an OFFER, selection by what the sender offered, the
 recorded elementary stream decoded with the matching ffmpeg demuxer, and --codecs to restrict negotiation.
-These tests drive the receiver with a raw sender (AirLinx's RTP packetizer, a real ffmpeg stream), not with
-MirrorSession, which only offers H.264 today."""
+Except for the last test, these drive the receiver with a raw sender (AirLinx's RTP packetizer, a real ffmpeg
+stream); the last one runs the real MirrorSession with the real encoder probe and checks what the TV negotiated."""
+import asyncio
+
 import pytest
 
 import vtvkit
-from airlinx.core.cast.mirror import parse_answer
-from airlinx.core.cast import castv2 as cv
-from vtvkit import decode_errors, encoder_available, ffprobe_frames, offer_for, offer_only, send_stream
+from airlinx.core import capture, models
+from airlinx.core.cast.mirror import MirrorSession, parse_answer
+from airlinx.core.cast import castv2 as cv, mirror as mirror_mod
+from vtvkit import (decode_errors, encoder_available, ffprobe_frames, make_device, offer_for, offer_only, send_stream,
+                    synthetic_source, wait_until)
 
 
 @pytest.mark.asyncio
@@ -66,6 +70,38 @@ async def test_answer_picks_what_the_sender_offered_when_both_codecs_are_listed(
         await ch.close()
 
 
-@pytest.mark.skip(reason="the AirLinx sender only offers H.264 today; enable when MirrorSession can offer hevc")
-def test_mirror_session_offers_and_streams_hevc():
-    ...
+@pytest.mark.asyncio
+async def test_mirror_session_offers_and_streams_hevc(make_tv, synthetic, monkeypatch):
+    """codec="auto" end to end: GET_CAPABILITIES -> plan_video -> HEVC OFFER, with the genuine encoder probe."""
+    real_caps = await capture.probe_encoders()
+    picked = capture.hevc_encoder_from_caps(real_caps)
+    if picked is None:
+        pytest.skip("ffmpeg has no working HEVC encoder (neither hevc_nvenc nor libx265)")
+    expected_encoder = picked[0]
+
+    async def probe():
+        return {**real_caps, "cuda_scale": False}     # the lavfi source has no CUDA frames
+    monkeypatch.setattr(mirror_mod, "probe_encoders", probe)
+
+    before = vtvkit.ffmpeg_pids()
+    tv = await make_tv()
+    stats, live = [], asyncio.Event()
+    session = MirrorSession(make_device(tv), synthetic_source(),
+                            models.MirrorOptions(codec="auto", fps=60, bitrate=6_000_000, audio=False),
+                            stats.append, lambda state, detail: live.set() if state == "live" else None)
+    await session.start()
+    try:
+        await asyncio.wait_for(live.wait(), 15)
+        await wait_until(lambda: tv.plane is not None and tv.plane.stats()["video"]["frames"] >= 30 and stats,
+                         10, "some HEVC frames and a stats report")
+        last = stats[-1]
+    finally:
+        await session.stop()
+
+    assert any(isinstance(p, dict) and p.get("type") == "GET_CAPABILITIES" for *_, p in tv.received)
+    assert [o["offer"]["supportedStreams"][0]["codecName"] for o in tv.offers] == ["hevc"]
+    assert tv.events_of("answer")[0].data["codecs"] == ["hevc"]
+    assert tv.recorder.video_codec == "hevc" and tv.recorder.video_path.suffix == ".h265"
+    assert last.encoder.startswith(expected_encoder)
+    assert decode_errors(tv.recorder.video_path, "hevc") == ""
+    assert vtvkit.ffmpeg_pids() <= before, "ffmpeg left running after STOP"
