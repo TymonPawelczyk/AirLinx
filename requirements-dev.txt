@@ -10,5 +10,5 @@ pychromecast
 zeroconf
 aiohttp
 async-upnp-client
-cryptography
+cryptography>=39  # tests use x509.load_pem_x509_certificates; Ubuntu 22.04 ships 3.4.8
 protobuf
