@@ -3,6 +3,7 @@ otherwise a fresh `./install.sh` produces an app that crashes on first use. gi c
 import ast
 import importlib.metadata as md
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -12,11 +13,15 @@ ROOT = Path(__file__).resolve().parent.parent
 SYSTEM_PROVIDED = {"gi"}
 
 
-def declared_deps():
+def raw_deps():
     text = (ROOT / "install.sh").read_text()
     m = re.search(r"^DEPS=\(([^)]*)\)", text, re.M)
     assert m, "DEPS array not found in install.sh"
-    return m.group(1).split()
+    return shlex.split(m.group(1))
+
+
+def declared_deps():
+    return [re.split(r"[<>=!~]", d)[0] for d in raw_deps()]
 
 
 def third_party_imports():
@@ -56,6 +61,7 @@ def closure(dists):
 def test_every_third_party_import_is_covered_by_install_deps():
     deps = declared_deps()
     assert {"aiohttp", "cryptography", "zeroconf"} <= set(deps)
+    assert "cryptography>=39" in raw_deps()   # system 3.4.8 would otherwise satisfy it; castv2 needs load_pem_x509_certificates
     have = closure(deps)
     owners = md.packages_distributions()
     missing = []
