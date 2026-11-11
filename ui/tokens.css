@@ -48,14 +48,17 @@
   /* — telewizor: matryca zawsze czarna, także w motywie jasnym — */
   --screen: #000000;
   --screen-text: #F3F2EF;
-  --bezel: linear-gradient(180deg, #161616, #070707);
-  --bezel-edge: inset 0 0 0 1px rgba(243,242,239,.07), inset 0 1px 0 rgba(243,242,239,.09);
-  --screen-shadow: 0 40px 90px -30px rgba(0,0,0,.9);
+  --bezel: #0f0f0f;                  /* pełny kolor zamiast gradientu 180deg #161616→#070707 (patrz docs/perf/ui.md) */
+  --bezel-line: rgba(243,242,239,.07);
+  --bezel-line-top: rgba(243,242,239,.154);
+  /* cień pod telewizorem = dawne box-shadow 0 40px 90px -30px rgba(0,0,0,.9), ale jako border-image z gotowej
+     bitmapy (scripts/gen_tv_shadow.py): rozmyty box-shadow był malowany od nowa przy każdej zmianie pod nim */
+  --sh-img: url("assets/shade/tv-dark.png"); --sh-slice: 270; --sh-b: 270px; --sh-e: 135px; --sh-in: 30px; --sh-y: 40px;
   --glow-opacity: .85;                /* poświata „bias light” */
 
   /* — cienie — */
   --shadow-pop: 0 0 0 1px var(--border), 0 24px 60px -12px rgba(0,0,0,.75);
-  --shadow-sheet: 0 0 0 1px var(--border), 0 40px 100px -20px rgba(0,0,0,.85);
+  --shadow-sheet: 0 0 0 1px var(--border), 0 20px 40px -16px rgba(0,0,0,.85);   /* było 0 40px 100px: arkusz się animuje, a duży blur malował się co klatkę */
   --primary-glow: 0 0 0 1px rgba(61,242,160,.35), 0 10px 34px -12px rgba(61,242,160,.5);
 
   /* — typografia — */
@@ -110,12 +113,13 @@
   --thumb: #FFFFFF;
   --chart-area: rgba(0, 122, 71, .1);
 
-  --bezel: linear-gradient(180deg, #2a2a2a, #111);
-  --bezel-edge: inset 0 0 0 1px rgba(255,255,255,.06), inset 0 1px 0 rgba(255,255,255,.12);
-  --screen-shadow: 0 30px 60px -28px rgba(0,0,0,.45);
+  --bezel: #1d1d1d;
+  --bezel-line: rgba(255,255,255,.06);
+  --bezel-line-top: rgba(255,255,255,.17);
+  --sh-img: url("assets/shade/tv-light.png"); --sh-slice: 180; --sh-b: 180px; --sh-e: 90px; --sh-in: 28px; --sh-y: 30px;   /* 0 30px 60px -28px rgba(0,0,0,.45) */
   --glow-opacity: .36;
 
   --shadow-pop: 0 0 0 1px var(--border), 0 16px 40px -12px rgba(14,14,13,.22);
-  --shadow-sheet: 0 0 0 1px var(--border), 0 30px 80px -20px rgba(14,14,13,.3);
+  --shadow-sheet: 0 0 0 1px var(--border), 0 18px 36px -14px rgba(14,14,13,.3);
   --primary-glow: 0 1px 0 rgba(255,255,255,.18) inset, 0 10px 24px -12px rgba(0,122,71,.6);
 }

@@ -3,7 +3,8 @@
 
 /* obrazy na matrycy i w poświacie */
 .screen img.scene { width: 100%; height: 100%; object-fit: cover; display: block; }
-.glow-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* bitmap poświaty jest już rozmyty (app.js bakeGlow) i wystaje poza .glow o margines rozmycia */
+.glow-img { position: absolute; left: -18.75%; top: -32.43%; width: 137.5%; height: 164.86%; display: block; }
 .no-thumb, .poster { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: rgba(243,242,239,.55); font-size: 13px; }
 .no-thumb[hidden], .poster[hidden] { display: none; }
 .poster { background: radial-gradient(120% 90% at 50% 120%, #0f1f19 0%, #000 60%); color: rgba(243,242,239,.8); }
