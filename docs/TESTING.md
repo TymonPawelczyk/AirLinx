@@ -1,6 +1,6 @@
 # Testing
 
-Five layers, from fast and offline to real hardware. The default `pytest -q` runs only the first.
+Six layers, from fast and offline to real hardware. The default `pytest -q` runs only the first.
 
 | Layer | Where | Needs | Run | CI |
 |---|---|---|---|---|
@@ -8,6 +8,7 @@ Five layers, from fast and offline to real hardware. The default `pytest -q` run
 | UI e2e on the mock bridge | `tests/e2e/test_ui.py` | Playwright + Chromium | `pytest tests/e2e -m e2e` | yes |
 | Landing page e2e | `tests/e2e/test_site.py` | Playwright + Chromium | `pytest tests/e2e -m e2e` | yes |
 | `install.sh` in a throwaway `$HOME` | `tests/test_shell_install.py` | bash | `pytest -q` | yes |
+| Virtual TV | `tests/virtual_tv/` | ffmpeg; no TV, no LAN | `pytest -m vtv tests/virtual_tv` | no, local (about 90 s) |
 | Live TV | `tests/live/` | a real, idle TV | `AIRLINX_TV_IP=<tv-ip> pytest -m tv tests/live` | no, local only |
 
 ## Setup
@@ -21,9 +22,10 @@ uv pip install --python .venv/bin/python -r requirements-dev.txt
 
 - `e2e`: Playwright tests. Deselected by default; `-m e2e` selects them. They skip, not fail, when Chromium is missing.
 - `tv`: needs a real TV. Deselected by default; run with `-m tv` and `AIRLINX_TV_IP`, otherwise they skip.
+- `vtv`: end-to-end against the virtual TV (`tools/virtual_tv`, see `docs/VIRTUAL_TV.md`). Deselected by default; `-m vtv` selects them. They skip without ffmpeg/ffprobe; the isolated-network test skips without rootless namespaces.
 - `slow`: more than a few seconds. Deselect with `-m "not slow"`.
 
-The default `addopts` is `-m "not e2e and not tv"`, so passing your own `-m` replaces it. Use `-m "e2e or not tv"` to run everything except the TV.
+The default `addopts` is `-m "not e2e and not tv and not vtv"`, so passing your own `-m` replaces it. Use `-m "e2e or vtv or not tv"` to run everything except the real TV.
 
 ## What each layer is for
 
@@ -32,6 +34,8 @@ The default `addopts` is `-m "not e2e and not tv"`, so passing your own `-m` rep
 - **Landing e2e.** `site/` served locally: no console errors or third-party requests, no horizontal scroll at 360 and 1440 px, anchors, copy buttons, theme persistence, the repository URL (the shipped page links to the public repo; tests rewrite `data-repo-url` on `<html>` to check that the `{{REPO_URL}}` placeholder stays inert, that another URL is substituted everywhere and that a `javascript:` value never becomes a link), alt text, and a hand-written a11y audit (landmarks, headings, accessible names, focus). axe-core is not bundled, to keep the run offline.
 - **install.sh.** Real runs against a temporary `$HOME` with `AIRLINX_SKIP_DEPS=1` and `AIRLINX_PYTHON`: files, launcher, `.desktop` entries, icons, autostart, idempotence, and that `--uninstall` removes exactly what was installed and nothing else. One `slow` test builds the real own venv.
 - **Live TV.** One 12 s mirror session and one Cast plus DLNA playback, each asserted: device-auth succeeded and the identity was pinned, live within 15 s, at least 50 fps, at least 95% of audio frames acked, STOP leaves the TV idle, no orphaned `ffmpeg`. Safety rules: never `force`; skip when anything runs on the TV or any `ffmpeg` already runs on this PC; the pin file is a temp file so the real `known_tvs.json` is untouched. Check `pgrep ffmpeg` afterwards anyway.
+
+- **Virtual TV.** A local Cast + DLNA receiver (`docs/VIRTUAL_TV.md`) against the real `MirrorSession`, players, media server and `Controller`: wire correctness (decoded output via ffprobe), failure modes and their error codes, discovery over an isolated rootless network, and the sender-to-receiver latency baseline in `docs/perf/`. It cannot replace the live layer: no real decoder, no Google certificate.
 
 ## Coverage
 

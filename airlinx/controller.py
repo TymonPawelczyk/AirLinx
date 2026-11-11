@@ -316,6 +316,15 @@ class UiHooks:
 
 
 # --------------------------------------------------------------------------- helpers
+def _dev_cast_root() -> bool:
+    """True while the developer-mode TEST Cast root CA is trusted in this process (never from settings)."""
+    try:
+        from .core.cast.castv2 import dev_trust_active
+    except ImportError:
+        return False
+    return dev_trust_active()
+
+
 async def _call_maybe_force(fn: Callable[..., Any], *args: Any, force: bool = False, **kw: Any) -> Any:
     """Call fn(*args, force=force) when fn accepts `force`; otherwise fn(*args)."""
     if force:
@@ -499,6 +508,7 @@ class Controller:
             version=VERSION,
             encoder=self.encoder,
             wayland=self.wayland,
+            dev_cast_root=_dev_cast_root(),
             hevc_encoder=self.hevc_encoder,
         )
 

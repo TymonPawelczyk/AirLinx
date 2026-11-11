@@ -119,6 +119,8 @@ class AppState:
     encoder: Optional[str] = None            # H.264 encoder for mirroring: "h264_nvenc" | "libx264" | "" (none found)
                                              # | None (not probed yet)
     wayland: bool = False                    # Wayland session: screen capture may be black (files still play)
+    dev_cast_root: bool = False              # developer mode: a TEST Cast root CA is trusted (castv2.dev_trust_active);
+                                             # never persisted, never set by the settings, shown as a warning in the UI
     hevc_encoder: Optional[str] = None       # H.265 encoder: "hevc_nvenc" | "libx265" | "" (none found) | None (not probed)
 
 

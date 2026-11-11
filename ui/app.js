@@ -144,7 +144,7 @@
     Object.assign(app.dataset, {
       screen: screenOf(), disc: S.devices.length ? 'found' : 'scanning', mode: ui.mode, session,
       media: mediaView(), paused: String(S.playback.state !== 'playing'), details: ui.details ? 'open' : 'closed',
-      wayland: String(!!S.wayland),
+      wayland: String(!!S.wayland), devtrust: String(!!S.dev_cast_root),
     });
     applyTheme();
     renderHeader(session);

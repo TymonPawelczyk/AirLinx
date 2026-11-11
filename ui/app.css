@@ -297,6 +297,12 @@
 .wl-note .n-ico { width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--warning-soft); color: var(--warning); }
 .app[data-wayland="true"][data-mode="ekran"] .wl-note { display: flex; }
 
+/* tryb deweloperski: zaufany testowy root CA Cast (AIRLINX_DEV); widoczny zawsze, w każdym trybie */
+.dev-note { display: none; flex: none; gap: 12px; align-items: flex-start; margin: 0 0 10px; padding: 10px 12px; border-radius: var(--r-md);
+  background: var(--warning-soft); font-size: 12.5px; line-height: 1.45; color: var(--text); }
+.dev-note .n-ico { width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--warning); color: var(--bg); }
+.app[data-devtrust="true"] .dev-note { display: flex; }
+
 .group { padding: 18px 0; box-shadow: 0 1px 0 var(--border-subtle); }
 .group:first-child { padding-top: 6px; }
 .group:last-of-type { box-shadow: none; }
