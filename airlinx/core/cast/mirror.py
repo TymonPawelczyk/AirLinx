@@ -22,12 +22,13 @@ from typing import Callable, Optional
 
 from ..audio import AudioPipeline, spec_from
 from ..capture import (AudioCapture, EncodedFrame, VideoCapture, VideoParams, default_audio_monitor,
-                       output_size, probe_encoders)
+                       hevc_encoder_from_caps, output_size, probe_encoders)
 from ..models import (AirlinxError, Device, MirrorOptions, PermissionPendingError, Source, Stats,
                       TvBusyError, TvNotFoundError)
 from ..sources import clamp_to_screen, screen_size, window_geometry
 from . import castv2
-from .castv2 import MIRRORING_APP_ID, NS_CONNECTION, NS_RECEIVER, NS_WEBRTC, CastChannel, CastError
+from .castv2 import (MIRRORING_APP_ID, NS_CONNECTION, NS_RECEIVER, NS_REMOTING, NS_WEBRTC, CastChannel,
+                     CastError, ChannelClosed)
 from .rtp import AUDIO_PT, VIDEO_PT, Pacer, RtcpRouter, StreamSender
 
 log = logging.getLogger("airlinx.cast.mirror")
@@ -41,8 +42,10 @@ RECONNECT_BACKOFF = (1.0, 2.0, 4.0)
 WINDOW_POLL = 1.0
 MIN_PACE_BPS = 80e6
 AUDIO_BITRATE = 128_000
+CAPS_TIMEOUT = 2.0        # GET_CAPABILITIES reply (only asked when HEVC is a candidate)
 CAPTURE_GRAB_MS = 3.0     # x11grab XShm copy estimate (added to half a frame interval)
 
+CODEC_NAMES = {"h264": "H.264", "hevc": "H.265"}
 STATES = ("connecting", "waiting_tv", "live", "reconnecting", "stopped", "error")
 LAUNCH_GUARD_S = 90.0     # after a failed start, STOP a late-appearing mirroring app (late consent)
 LAUNCH_GUARD_POLL = 2.0
@@ -50,6 +53,10 @@ APP_GONE_PL = "Mirroring zakończono na telewizorze."
 WINDOW_GONE_POLLS = 2     # consecutive polls without the shared window → end the session
 WINDOW_GONE_PL = "Udostępniane okno zostało zamknięte lub zminimalizowane."
 NO_RETRY_CODES = ("tv_cert_changed", "tv_auth_failed")
+
+# TVs (pin key) that accepted an HEVC OFFER but never showed it (no feedback, or the encoder died): "auto" does
+# not try HEVC on them again until the app restarts. An explicit "hevc" setting ignores this.
+_hevc_bad: set[str] = set()
 
 # Late-launch guards per TV (pin key), not per MirrorSession: the controller creates a new session
 # object for every start, and a guard left by a cancelled start must not STOP the next one.
@@ -86,6 +93,7 @@ class Effective:
     max_height: int
     audio: bool
     gop_s: float
+    codec: str = "h264"                # the user's choice (auto | h264 | hevc), not what is negotiated
     audio_key: tuple = ("system",)     # what is captured (AudioSpec.key); change → restart audio only
 
 
@@ -94,9 +102,9 @@ def effective_options(o: MirrorOptions) -> Effective:
     if o.preset == "cinema":
         return Effective(target_delay_ms=max(400, o.target_delay_ms),
                          bitrate=min(int(o.bitrate * 1.5), 40_000_000), fps=o.fps,
-                         max_height=o.max_height, audio=o.audio, gop_s=4.0, audio_key=akey)
+                         max_height=o.max_height, audio=o.audio, gop_s=4.0, codec=o.codec, audio_key=akey)
     return Effective(target_delay_ms=max(50, min(o.target_delay_ms, 400)), bitrate=o.bitrate, fps=o.fps,
-                     max_height=o.max_height, audio=o.audio, gop_s=2.0, audio_key=akey)
+                     max_height=o.max_height, audio=o.audio, gop_s=2.0, codec=o.codec, audio_key=akey)
 
 
 @dataclass
@@ -110,13 +118,28 @@ class StreamKeys:
         return cls(random.randint(1, 0x7FFFFFFF), os.urandom(16), os.urandom(16))
 
 
+def hevc_level(width: int, height: int, fps: int) -> str:
+    """Lowest HEVC level (main tier) that covers the picture size and sample rate."""
+    px = width * height
+    if px <= 2_228_224 and px * fps <= 133_693_440:
+        return "4.1"
+    if px <= 8_912_896 and px * fps <= 267_386_880:
+        return "5.0"
+    return "5.1"
+
+
 def build_offer(*, video: StreamKeys, audio: Optional[StreamKeys], width: int, height: int, fps: int,
-                bitrate: int, target_delay_ms: int, audio_bitrate: int = AUDIO_BITRATE) -> dict:
-    """OFFER message (without seqNum; CastChannel.request adds it)."""
+                bitrate: int, target_delay_ms: int, audio_bitrate: int = AUDIO_BITRATE,
+                codec: str = "h264") -> dict:
+    """OFFER message (without seqNum; CastChannel.request adds it).
+
+    HEVC: ``codecName "hevc"``, profile main and the level for the picture. ``codecParameter`` is left out on
+    purpose: it is optional, Chrome does not send it, and openscreen rejects anything not starting with "hev1"."""
     streams = [{
-        "index": 0, "type": "video_source", "codecName": "h264", "rtpProfile": "cast",
+        "index": 0, "type": "video_source", "codecName": codec, "rtpProfile": "cast",
         "rtpPayloadType": VIDEO_PT, "ssrc": video.ssrc, "maxFrameRate": f"{fps * 1000}/1000",
-        "timeBase": "1/90000", "maxBitRate": bitrate, "profile": "main", "level": "4",
+        "timeBase": "1/90000", "maxBitRate": bitrate, "profile": "main",
+        "level": hevc_level(width, height, fps) if codec == "hevc" else "4",
         "targetDelay": target_delay_ms, "aesKey": video.key.hex(), "aesIvMask": video.iv.hex(),
         "receiverRtcpEventLog": True, "channels": 1,
         "resolutions": [{"width": width, "height": height}],
@@ -159,8 +182,43 @@ def parse_answer(ans: dict) -> AnswerInfo:
 
 
 def is_structural_change(a: Effective, b: Effective) -> bool:
-    """Changes that need a new OFFER (resolution/fps/stream set)."""
-    return a.audio != b.audio or a.max_height != b.max_height or a.fps != b.fps
+    """Changes that need a new OFFER (resolution/fps/stream set/codec)."""
+    return a.audio != b.audio or a.max_height != b.max_height or a.fps != b.fps or a.codec != b.codec
+
+
+def parse_tv_codecs(reply: Optional[dict]) -> Optional[set[str]]:
+    """Media capabilities (``mediaCaps``) from a GET_CAPABILITIES reply; None when absent or malformed."""
+    caps = reply.get("capabilities") if isinstance(reply, dict) else None
+    media = caps.get("mediaCaps") if isinstance(caps, dict) else None
+    if not isinstance(media, list):
+        return None
+    return {c for c in media if isinstance(c, str)}
+
+
+def plan_video(pref: str, caps: dict[str, bool], tv_codecs: Optional[set[str]],
+               exclude: frozenset[str] | set[str] = frozenset()) -> list[tuple[str, str, bool]]:
+    """Ordered (codec, ffmpeg encoder, gpu_scale) candidates to offer, best first; the last one is the fallback.
+
+    * ``h264``: H.264 only (NVENC, else libx264).
+    * ``auto``: HEVC first only when ffmpeg can encode it AND the TV lists "hevc" (unknown → H.264).
+    * ``hevc``: HEVC first when ffmpeg can, unless the TV's own list lacks it (unknown → try).
+    H.264 stays the fallback whenever an H.264 encoder exists."""
+    plan: list[tuple[str, str, bool]] = []
+    hevc = hevc_encoder_from_caps(caps)
+    if pref in ("auto", "hevc") and "hevc" not in exclude and hevc is not None:
+        if pref == "hevc":
+            tv_ok = tv_codecs is None or "hevc" in tv_codecs
+        else:
+            tv_ok = tv_codecs is not None and "hevc" in tv_codecs
+        if tv_ok:
+            plan.append(("hevc", hevc[0], hevc[1]))
+    if caps.get("nvenc"):
+        plan.append(("h264", "h264_nvenc", bool(caps.get("cuda_scale"))))
+    elif caps.get("x264"):
+        plan.append(("h264", "libx264", False))
+    if not plan:
+        raise AirlinxError("no_encoder", "Brak kodera H.264 ani H.265 (ffmpeg z NVENC, libx264 lub libx265).")
+    return plan
 
 
 # --------------------------------------------------------------------------------------
@@ -194,6 +252,8 @@ class _Media:
     tasks: list[asyncio.Task] = dataclasses.field(default_factory=list)
     first_ack: bool = False
     pipeline: Optional[AudioPipeline] = None   # audio routing (app mode) owned by this media instance
+    codec: str = "h264"                        # what was negotiated: "h264" | "hevc"
+    can_fall_back: bool = False                # HEVC stream with an H.264 encoder available as plan B
 
 
 async def _cancel_launch_guard(key: str) -> None:
@@ -231,6 +291,7 @@ class MirrorSession:
         self._launch_sent = False
         self._app_pending = False
         self._window_gone = False   # sticky: the "fatal" event alone can be dropped by a reconnect
+        self._no_hevc = False       # HEVC failed on this session (even when forced): reconnects use H.264
         self.on_notice: Optional[Callable[[str], None]] = None   # Polish user notices (audio fallbacks)
 
     # ---- public API ------------------------------------------------------------------
@@ -508,12 +569,17 @@ class MirrorSession:
         out_w, out_h = output_size(geom[2], geom[3], eff.max_height)
         caps = await probe_encoders()
         self._checkpoint()
-        if caps.get("nvenc"):
-            encoder, gpu = "h264_nvenc", bool(caps.get("cuda_scale"))
-        elif caps.get("x264"):
-            encoder, gpu = "libx264", False
-        else:
-            raise AirlinxError("no_encoder", "Brak kodera H.264 (ffmpeg z NVENC lub libx264).")
+        pref = eff.codec
+        exclude: set[str] = set()
+        if self._no_hevc or (pref == "auto" and self._pin_key in _hevc_bad):
+            exclude.add("hevc")
+        tv_codecs: Optional[set[str]] = None
+        if pref in ("auto", "hevc") and "hevc" not in exclude and hevc_encoder_from_caps(caps) is not None:
+            tv_codecs = await self._query_tv_codecs()
+            self._checkpoint()
+        plan = plan_video(pref, caps, tv_codecs, exclude)
+        log.info("video plan: %s (preference %s, TV codecs %s)", [(c, e) for c, e, _ in plan], pref,
+                 sorted(tv_codecs) if tv_codecs is not None else "unknown")
         want_audio = eff.audio
         if want_audio and eff.audio_key == ("system",):
             want_audio = bool(await default_audio_monitor())   # no sound server → no audio stream at all
@@ -522,14 +588,32 @@ class MirrorSession:
                 log.warning("no audio monitor source found; mirroring without audio")
         vkeys = StreamKeys.random()
         akeys = StreamKeys.random() if want_audio else None
-        offer = build_offer(video=vkeys, audio=akeys, width=out_w, height=out_h, fps=eff.fps,
-                            bitrate=eff.bitrate, target_delay_ms=eff.target_delay_ms)
-        log.info("OFFER %dx%d@%d %d b/s delay=%d audio=%s", out_w, out_h, eff.fps, eff.bitrate,
-                 eff.target_delay_ms, bool(akeys))
-        ans = await self._ch.request(NS_WEBRTC, offer, self._app["transportId"], id_field="seqNum", timeout=10)
-        self._checkpoint()
-        info = parse_answer(ans)
-        log.info("ANSWER port=%d ssrcs=%s display=%s", info.udp_port, info.receiver_ssrcs, info.display)
+        info: Optional[AnswerInfo] = None
+        codec, encoder, gpu = plan[0]
+        n = 0
+        for n, (codec, encoder, gpu) in enumerate(plan):
+            offer = build_offer(video=vkeys, audio=akeys, width=out_w, height=out_h, fps=eff.fps,
+                                bitrate=eff.bitrate, target_delay_ms=eff.target_delay_ms, codec=codec)
+            log.info("OFFER %s %dx%d@%d %d b/s delay=%d audio=%s", codec, out_w, out_h, eff.fps, eff.bitrate,
+                     eff.target_delay_ms, bool(akeys))
+            try:
+                ans = await self._ch.request(NS_WEBRTC, offer, self._app["transportId"], id_field="seqNum",
+                                             timeout=10)
+                self._checkpoint()
+                info = parse_answer(ans)
+            except ChannelClosed:
+                raise
+            except (CastError, asyncio.TimeoutError) as e:
+                if n + 1 >= len(plan):
+                    raise
+                log.warning("receiver did not accept %s (%s); offering %s", codec, e, plan[n + 1][0])
+                self._notice(f"Telewizor nie przyjął {CODEC_NAMES[codec]}. Używam {CODEC_NAMES[plan[n + 1][0]]}.")
+                continue
+            break
+        assert info is not None
+        can_fall_back = n + 1 < len(plan)
+        log.info("ANSWER port=%d ssrcs=%s display=%s (%s via %s)", info.udp_port, info.receiver_ssrcs,
+                 info.display, codec, encoder)
         if akeys and 1 not in info.receiver_ssrcs:
             log.warning("receiver rejected the audio stream")
             akeys = None
@@ -568,10 +652,10 @@ class MirrorSession:
         params = VideoParams(geometry=geom, out_w=out_w, out_h=out_h, fps=eff.fps, bitrate=eff.bitrate,
                              gop_s=eff.gop_s, encoder=encoder, gpu_scale=gpu)
         vcap = VideoCapture(params, lambda fr: self._on_video_frame(holder.get("m"), fr),
-                            lambda msg: self._events.put_nowait(("fatal", msg)))
+                            lambda msg: self._on_video_fatal(holder.get("m"), msg))
         m = _Media(transport=transport, video=video, audio=audio, router=router, pacer=pacer, wake=wake,
                    vcap=vcap, acap=None, eff=eff, out_size=(out_w, out_h), geometry=geom,
-                   started=time.monotonic())
+                   started=time.monotonic(), codec=codec, can_fall_back=can_fall_back and codec == "hevc")
         holder["m"] = m
         self._media = m
         m.tasks += [asyncio.create_task(self._pacer_loop(m), name="mirror-pacer"),
@@ -585,6 +669,43 @@ class MirrorSession:
             self._checkpoint()
         except OSError as e:
             raise AirlinxError("ffmpeg_missing", f"Nie można uruchomić ffmpeg: {e}") from e
+
+    async def _query_tv_codecs(self) -> Optional[set[str]]:
+        """Ask the TV which media types it decodes (``remoting`` GET_CAPABILITIES; the reply arrives on
+        ``webrtc``). None when it does not answer in time: callers then stay on the proven codec."""
+        ch, app = self._ch, self._app
+        assert ch is not None and app is not None
+        waiter = asyncio.ensure_future(ch.wait_for(
+            lambda m, p: p is not None and isinstance(p.get("capabilities"), dict), timeout=CAPS_TIMEOUT))
+        try:
+            await asyncio.sleep(0)   # let the waiter register its listener
+            await ch.send(NS_REMOTING, {"type": "GET_CAPABILITIES", "seqNum": ch.next_id()}, app["transportId"])
+            _, p = await waiter
+            return parse_tv_codecs(p)
+        except ChannelClosed:
+            raise
+        except (CastError, asyncio.TimeoutError, OSError) as e:
+            log.info("TV capabilities not available: %s", e)
+            return None
+        finally:
+            waiter.cancel()
+
+    def _hevc_failed(self, m: _Media, why: str) -> bool:
+        """HEVC does not work on this TV/PC: remember it and ask for a reconnect that uses H.264.
+        False when there is no H.264 plan B (the caller treats it as an ordinary failure)."""
+        if m.codec != "hevc" or not m.can_fall_back:
+            return False
+        log.warning("HEVC failed (%s); falling back to H.264", why)
+        self._no_hevc = True
+        _hevc_bad.add(self._pin_key)
+        self._notice("H.265 nie działa z tym telewizorem. Przełączam na H.264.")
+        return True
+
+    def _on_video_fatal(self, m: Optional[_Media], msg: str) -> None:
+        if m is not None and m is self._media and self._hevc_failed(m, msg):
+            self._events.put_nowait(("stall", f"HEVC encoder failed: {msg}"))
+        else:
+            self._events.put_nowait(("fatal", msg))
 
     async def _stop_media(self) -> None:
         m, self._media = self._media, None
@@ -754,6 +875,7 @@ class MirrorSession:
                 self._events.put_nowait(("stall", f"no RTCP for {now - last:.1f}s"))
                 return
             if not m.first_ack and now - m.started > STALL_TIMEOUT_START:
+                self._hevc_failed(m, "no feedback from the receiver")
                 self._events.put_nowait(("stall", "no feedback from receiver"))
                 return
             try:

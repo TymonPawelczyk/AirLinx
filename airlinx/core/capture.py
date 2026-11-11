@@ -6,6 +6,13 @@ low-latency (preset p1, tune ull, no B-frames, CBR, short GOP) → FLV on stdout
 exact access-unit boundaries, the keyframe flag and a per-frame timestamp without waiting
 for the next AUD. Fallback encoder: ``libx264`` ultrafast/zerolatency.
 
+HEVC (``hevc_nvenc``, fallback ``libx265`` ultrafast/zerolatency): ffmpeg 4.4's FLV muxer cannot carry
+HEVC, so the encoder writes raw Annex B (``-f hevc``, AUD per access unit) and :class:`HevcParser`
+splits it. A raw stream has no timestamps: the capture time of an access unit is the time its first
+bytes reached us minus ``ENCODE_FLOOR_S``. An access unit ends at the next AUD, so the reader also
+flushes the pending one when the pipe goes idle for ``HEVC_IDLE_FLUSH_S`` (otherwise every frame would
+wait one frame interval for its successor).
+
 Audio: one or two PulseAudio/PipeWire sources (chosen by core/audio.py: default-sink monitor,
 a microphone, both mixed with ``amix``, or the ``airlinx_app`` null-sink monitor) → Opus 48 kHz
 stereo, 10 ms frames → Ogg (one page per packet) on stdout.
@@ -23,6 +30,7 @@ import collections
 import contextlib
 import logging
 import os
+import re
 import shutil
 import struct
 import time
@@ -37,6 +45,7 @@ OFFSET_DECAY_S = 0.00002      # per frame; lets the min-offset estimator follow 
 AUDIO_LATENCY_S = 0.020       # pulse fragment + Opus lookahead (estimate)
 AUDIO_REANCHOR_S = 0.040
 RESTART_TIMEOUT_S = 4.0
+HEVC_IDLE_FLUSH_S = 0.003     # pipe idle this long → the pending access unit is complete
 MAX_FAILS, FAIL_WINDOW_S = 3, 15.0
 
 
@@ -126,6 +135,107 @@ class FlvParser:
         return H264Frame(data=data, key=key, ts_ms=ts)
 
 
+# HEVC (H.265) Annex B -------------------------------------------------------------------
+HEVC_AUD, HEVC_VPS, HEVC_SPS, HEVC_PPS = 35, 32, 33, 34
+HEVC_PARAM_SETS = (HEVC_VPS, HEVC_SPS, HEVC_PPS)
+HEVC_IRAP = range(16, 22)                  # BLA/IDR/CRA: a decoder can start here
+_AUD_START = re.compile(rb"\x00\x00\x01[\x46\x47]")     # 3-byte start code + NAL type 35 header
+_START3 = re.compile(rb"\x00\x00\x01")
+
+
+@dataclass
+class HevcAccessUnit:
+    data: bytes          # Annex B, starts with its AUD; key units carry VPS/SPS/PPS
+    key: bool            # contains an IRAP slice (NAL 16–21)
+    t: Optional[float]   # time.monotonic() of the chunk in which its AUD arrived (None if not given)
+
+
+def _hevc_nals(au: bytes) -> list[tuple[int, bytes]]:
+    """(nal_type, bytes) pieces of an access unit. A piece keeps its own start code (a zero byte just
+    before a 3-byte start code belongs to the next piece), so joining them gives back ``au``."""
+    starts = [m.start() for m in _START3.finditer(au) if m.end() < len(au)]
+    cuts = [st - 1 if st > 0 and au[st - 1] == 0 else st for st in starts]
+    out = []
+    for i, st in enumerate(starts):
+        a = cuts[i]
+        b = cuts[i + 1] if i + 1 < len(cuts) else len(au)
+        out.append(((au[st + 3] >> 1) & 0x3F, au[a:b]))
+    return out
+
+
+class HevcParser:
+    """Incremental raw HEVC Annex B → access units, split at AUD (NAL type 35).
+
+    * An access unit is emitted when the next AUD has arrived (or on :meth:`flush`).
+    * ``key`` is true for IRAP slices (NAL 16–21). A key unit always carries VPS, SPS and PPS: the ones
+      the encoder wrote are kept, missing ones are filled in from the last seen copy.
+    * Units without a VCL NAL (an AUD alone, SEI only) are dropped.
+    * Bytes before the first AUD, and the stray tail after a :meth:`flush` that cut a frame in two,
+      are discarded (``discarded_bytes``); decoding resumes at the next AUD.
+    """
+
+    def __init__(self) -> None:
+        self._buf = bytearray()
+        self._synced = False
+        self._scan = 0
+        self._t: Optional[float] = None
+        self._params: dict[int, bytes] = {}
+        self.discarded_bytes = 0
+
+    def feed(self, data: bytes, now: Optional[float] = None) -> list[HevcAccessUnit]:
+        self._buf += data
+        out: list[HevcAccessUnit] = []
+        buf = self._buf
+        while True:
+            m = _AUD_START.search(buf, self._scan)
+            if m is None:
+                break
+            cut = m.start() - 1 if m.start() > 0 and buf[m.start() - 1] == 0 else m.start()
+            if self._synced and cut > 0:
+                au = self._finish(bytes(buf[:cut]), self._t)
+                if au is not None:
+                    out.append(au)
+                del buf[:cut]
+            elif not self._synced:
+                self.discarded_bytes += cut
+                del buf[:cut]
+                self._synced = True
+            self._t = now
+            self._scan = m.end() - cut      # continue after this AUD (indices shifted by the cut)
+        if self._synced:
+            self._scan = max(self._scan, len(buf) - 3)
+        elif len(buf) > 4:               # nothing to sync on yet: keep a possible partial 4-byte start code
+            self.discarded_bytes += len(buf) - 4
+            del buf[:-4]
+            self._scan = 0
+        return out
+
+    def flush(self) -> list[HevcAccessUnit]:
+        """Emit the pending access unit (the pipe went idle, or the stream ended)."""
+        if not self._synced or not self._buf:
+            return []
+        au = self._finish(bytes(self._buf), self._t)
+        self._buf.clear()
+        self._synced = False
+        self._scan = 0
+        return [au] if au is not None else []
+
+    def _finish(self, data: bytes, t: Optional[float]) -> Optional[HevcAccessUnit]:
+        nals = _hevc_nals(data)
+        types = [ty for ty, _ in nals]
+        if not any(ty < 32 for ty in types):
+            return None
+        for ty, piece in nals:
+            if ty in HEVC_PARAM_SETS:
+                self._params[ty] = piece
+        key = any(ty in HEVC_IRAP for ty in types)
+        if key and not all(ty in types for ty in HEVC_PARAM_SETS) and all(ty in self._params for ty in HEVC_PARAM_SETS):
+            head = [piece for ty, piece in nals if ty == HEVC_AUD]
+            rest = [piece for ty, piece in nals if ty != HEVC_AUD and ty not in HEVC_PARAM_SETS]
+            data = b"".join(head + [self._params[ty] for ty in HEVC_PARAM_SETS] + rest)
+        return HevcAccessUnit(data=data, key=key, t=t)
+
+
 class OggOpusParser:
     """Incremental Ogg → raw Opus packets (OpusHead/OpusTags skipped)."""
 
@@ -213,13 +323,15 @@ async def _ffmpeg_ok(args: list[str], timeout: float = 8.0) -> bool:
 
 
 async def probe_encoders() -> dict[str, bool]:
-    """Detect NVENC and CUDA scaling once (cached)."""
+    """Detect NVENC (H.264 and HEVC), CUDA scaling, libx264 and libx265 once (cached)."""
     if not _caps:
         src = ["-f", "lavfi", "-i", "testsrc2=s=256x144:r=30", "-frames:v", "3"]
         _caps["nvenc"] = await _ffmpeg_ok(src + ["-c:v", "h264_nvenc", "-f", "null", "-"])
         _caps["cuda_scale"] = _caps["nvenc"] and await _ffmpeg_ok(
             src + ["-vf", "format=bgr0,hwupload_cuda,scale_cuda=192:108", "-c:v", "h264_nvenc", "-f", "null", "-"])
         _caps["x264"] = await _ffmpeg_ok(src + ["-c:v", "libx264", "-f", "null", "-"])
+        _caps["hevc_nvenc"] = _caps["nvenc"] and await _ffmpeg_ok(src + ["-c:v", "hevc_nvenc", "-f", "null", "-"])
+        _caps["x265"] = await _ffmpeg_ok(src + ["-c:v", "libx265", "-f", "null", "-"])
         log.info("encoder capabilities: %s", _caps)
     return dict(_caps)
 
@@ -233,8 +345,22 @@ class VideoParams:
     bitrate: int = 12_000_000
     gop_s: float = 2.0
     draw_mouse: bool = True
-    encoder: str = "h264_nvenc"               # or libx264
+    encoder: str = "h264_nvenc"               # | libx264 | hevc_nvenc | libx265
     gpu_scale: bool = True
+
+
+def codec_of(encoder: str) -> str:
+    """Cast codec name ("h264" | "hevc") of an ffmpeg encoder name."""
+    return "hevc" if encoder in ("hevc_nvenc", "libx265") else "h264"
+
+
+def hevc_encoder_from_caps(caps: dict[str, bool]) -> Optional[tuple[str, bool]]:
+    """(encoder, gpu_scale) for HEVC from probe_encoders() results; None when ffmpeg has no HEVC encoder."""
+    if caps.get("hevc_nvenc"):
+        return "hevc_nvenc", bool(caps.get("cuda_scale"))
+    if caps.get("x265"):
+        return "libx265", False
+    return None
 
 
 def build_video_cmd(p: VideoParams, disp: Optional[str] = None) -> list[str]:
@@ -243,18 +369,26 @@ def build_video_cmd(p: VideoParams, disp: Optional[str] = None) -> list[str]:
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "warning", "-nostdin",
            "-f", "x11grab", "-draw_mouse", "1" if p.draw_mouse else "0", "-framerate", str(p.fps),
            "-video_size", f"{w}x{h}", "-i", f"{disp or display()}+{x},{y}"]
-    if p.encoder == "h264_nvenc" and p.gpu_scale:
+    nvenc = p.encoder in ("h264_nvenc", "hevc_nvenc")
+    hevc = codec_of(p.encoder) == "hevc"
+    if nvenc and p.gpu_scale:
         cmd += ["-vf", f"hwupload_cuda,scale_cuda={p.out_w}:{p.out_h}"]
     else:
         cmd += ["-vf", f"scale={p.out_w}:{p.out_h}:flags=fast_bilinear,format=nv12"]
-    if p.encoder == "h264_nvenc":
-        cmd += ["-c:v", "h264_nvenc", "-preset", "p1", "-tune", "ull", "-zerolatency", "1", "-delay", "0",
+    if nvenc:
+        cmd += ["-c:v", p.encoder, "-preset", "p1", "-tune", "ull", "-zerolatency", "1", "-delay", "0",
                 "-rc", "cbr", "-forced-idr", "1"]
+        if hevc:
+            cmd += ["-aud", "1"]
+    elif hevc:
+        x265 = f"aud=1:repeat-headers=1:bframes=0:keyint={gop}:min-keyint={gop}:scenecut=0:log-level=warning"
+        cmd += ["-c:v", "libx265", "-preset", "ultrafast", "-tune", "zerolatency", "-pix_fmt", "yuv420p",
+                "-x265-params", x265]
     else:
         cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-pix_fmt", "yuv420p"]
     cmd += ["-bf", "0", "-g", str(gop), "-profile:v", "main",
             "-b:v", str(p.bitrate), "-maxrate", str(p.bitrate), "-bufsize", str(max(p.bitrate // 2, 500_000)),
-            "-vsync", "0", "-flush_packets", "1", "-f", "flv", "pipe:1"]
+            "-vsync", "0", "-flush_packets", "1", "-f", "hevc" if hevc else "flv", "pipe:1"]
     return cmd
 
 
@@ -420,8 +554,8 @@ class VideoCapture:
     @property
     def encoder_label(self) -> str:
         p = self.params
-        if p.encoder == "h264_nvenc":
-            return "h264_nvenc" + (" + scale_cuda" if p.gpu_scale else " + CPU scale")
+        if p.encoder in ("h264_nvenc", "hevc_nvenc"):
+            return p.encoder + (" + scale_cuda" if p.gpu_scale else " + CPU scale")
         return p.encoder
 
     @property
@@ -512,19 +646,38 @@ class VideoCapture:
                 await task
 
     async def _reader(self, proc: _FfmpegProc) -> None:
-        parser = FlvParser()
+        hevc = codec_of(self.params.encoder) == "hevc"
+        parser: Union[HevcParser, FlvParser] = HevcParser() if hevc else FlvParser()
         offset: Optional[float] = None
+        last_cap = 0.0
         try:
             while True:
-                chunk = await proc.read()
-                if not chunk:
-                    break
-                for fr in parser.feed(chunk):
+                if hevc:
+                    try:
+                        chunk = await asyncio.wait_for(proc.read(), HEVC_IDLE_FLUSH_S)
+                    except asyncio.TimeoutError:
+                        units = parser.flush()      # type: ignore[union-attr]
+                        chunk = None
+                    else:
+                        if not chunk:
+                            break
+                        units = parser.feed(chunk, time.monotonic())    # type: ignore[call-arg]
+                else:
+                    chunk = await proc.read()
+                    if not chunk:
+                        break
+                    units = parser.feed(chunk)
+                for fr in units:
                     now = time.monotonic()
-                    # capture time ≈ ts mapped with the minimal observed (arrival - ts) offset
-                    off = now - fr.ts_ms / 1000.0
-                    offset = off if offset is None else min(offset + OFFSET_DECAY_S, off)
-                    cap = offset + fr.ts_ms / 1000.0 - ENCODE_FLOOR_S
+                    if isinstance(fr, HevcAccessUnit):
+                        # no container timestamps: capture ≈ arrival of the frame's first bytes - encode floor
+                        cap = max((fr.t if fr.t is not None else now) - ENCODE_FLOOR_S, last_cap + 1e-4)
+                        last_cap = cap
+                    else:
+                        # capture time ≈ ts mapped with the minimal observed (arrival - ts) offset
+                        off = now - fr.ts_ms / 1000.0
+                        offset = off if offset is None else min(offset + OFFSET_DECAY_S, off)
+                        cap = offset + fr.ts_ms / 1000.0 - ENCODE_FLOOR_S
                     if self._active is not proc:
                         if self._promoted.get(proc) is None or not fr.key:
                             continue
@@ -542,6 +695,12 @@ class VideoCapture:
             raise
         except Exception:  # noqa: BLE001
             log.exception("video reader failed")
+        if hevc:   # stream ended: the last access unit has no successor
+            for fr in parser.flush():       # type: ignore[union-attr]
+                if self._active is proc:
+                    now = time.monotonic()
+                    with contextlib.suppress(Exception):
+                        self.on_frame(EncodedFrame(fr.data, fr.key, max((fr.t or now) - ENCODE_FLOOR_S, last_cap + 1e-4), now))
         # process ended
         if proc.proc is not None:
             with contextlib.suppress(Exception):

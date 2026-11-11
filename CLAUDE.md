@@ -35,6 +35,10 @@ AIRLINX_TV_IP=<tv-ip> .venv/bin/python -m pytest -m tv tests/live   # real, idle
   (`?mock=nodevices|busy|slow`, `airlinx.mock.*`). Screenshots: `python ui/shoot.py [name]` (Playwright, 1100×720,
   output in `ui/shots/`).
 
+### Virtual TV
+
+`tools/virtual_tv` is a local Cast + DLNA receiver for end-to-end tests without a TV (`pytest -m vtv tests/virtual_tv`, CLI `python -m tools.virtual_tv`, isolated network `tools/virtual_tv/netns.sh`). See `docs/VIRTUAL_TV.md`. Its test root CA is trusted only with `AIRLINX_DEV=1` + `AIRLINX_DEV_CAST_ROOT`, never from settings.
+
 ### Live tests against the real TV
 
 `tests/live` (marker `tv`, needs `AIRLINX_TV_IP`) asserts on a real session. The older smoke scripts are
@@ -63,7 +67,9 @@ and `toast`. Payloads are `dataclasses.asdict` of the types in `core/models.py`.
 **Mirroring (Cast).**
 - `core/sources.py` lists monitors and windows (xrandr/Xlib).
 - `core/capture.py` runs ffmpeg: `x11grab` → `h264_nvenc` (falls back to libx264) emitting FLV, which is parsed into
-  H.264 frames. Audio → Opus, 10 ms frames, from the source chosen in settings (`core/audio.py`): the default sink's
+  H.264 frames. With `mirror.codec` = `auto`/`hevc` (default `h264`) it encodes `hevc_nvenc` (falls back to libx265) as raw
+  Annex B split into access units by `HevcParser`; `MirrorSession` offers HEVC only when the TV lists it and falls back to
+  H.264 on a rejected ANSWER or an HEVC stream that never gets acknowledged (docs/ARCHITECTURE.md, item 13). Audio → Opus, 10 ms frames, from the source chosen in settings (`core/audio.py`): the default sink's
   monitor, a microphone, both mixed in one ffmpeg (`amix`), or a single app. The single-app mode moves the app's
   sink-inputs to a temporary null sink `airlinx_app`. It records routes in `$XDG_RUNTIME_DIR/airlinx/audio-routes.json`,
   and `cleanup_orphans()` restores them at startup after a crash. Never leave a user's app muted or re-pinned.

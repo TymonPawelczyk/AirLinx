@@ -35,7 +35,8 @@ from .core.models import (
 from . import __version__
 from .core.audio import AudioSpec, audio_label, spec_from
 from .core.sources import is_wayland_session
-from .settings import Settings
+from .core.capture import hevc_encoder_from_caps
+from .settings import CODECS, Settings
 
 log = logging.getLogger(__name__)
 
@@ -315,6 +316,15 @@ class UiHooks:
 
 
 # --------------------------------------------------------------------------- helpers
+def _dev_cast_root() -> bool:
+    """True while the developer-mode TEST Cast root CA is trusted in this process (never from settings)."""
+    try:
+        from .core.cast.castv2 import dev_trust_active
+    except ImportError:
+        return False
+    return dev_trust_active()
+
+
 async def _call_maybe_force(fn: Callable[..., Any], *args: Any, force: bool = False, **kw: Any) -> Any:
     """Call fn(*args, force=force) when fn accepts `force`; otherwise fn(*args)."""
     if force:
@@ -384,6 +394,8 @@ def _opts_from(base: MirrorOptions, patch: Optional[dict]) -> MirrorOptions:
     if not patch:
         return replace(base)
     known = {k: v for k, v in patch.items() if k in MirrorOptions.__dataclass_fields__}
+    if known.get("codec", base.codec) not in CODECS:
+        del known["codec"]          # an unknown codec in an RPC or old file never reaches the session
     return replace(base, **known)
 
 
@@ -439,6 +451,7 @@ class Controller:
         self.playback = PlaybackState(state="idle", volume=float(settings.get("media.volume", 1.0)))
         self.media_protocol: Optional[str] = None
         self.encoder: Optional[str] = None      # "h264_nvenc" | "libx264" | "" (none) | None (not probed yet)
+        self.hevc_encoder: Optional[str] = None  # "hevc_nvenc" | "libx265" | "" (none) | None (not probed yet)
         self._encoder_task: Optional[asyncio.Task] = None
         self.wayland = is_wayland_session(os.environ)
         if self.wayland:
@@ -495,6 +508,8 @@ class Controller:
             version=VERSION,
             encoder=self.encoder,
             wayland=self.wayland,
+            dev_cast_root=_dev_cast_root(),
+            hevc_encoder=self.hevc_encoder,
         )
 
     def _on_loop(self, fn: Callable[..., Any], *args: Any) -> None:
@@ -559,6 +574,8 @@ class Controller:
             self.encoder = encoder_from_caps(caps)
         except AirlinxError:
             self.encoder = ""
+        hevc = hevc_encoder_from_caps(caps)
+        self.hevc_encoder = hevc[0] if hevc else ""
         self.emit_state()
 
     def _discovery_settled(self) -> None:

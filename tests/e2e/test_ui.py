@@ -364,6 +364,120 @@ def test_settings_encoder_label_follows_detected_encoder(new_tab, ui_url, query,
     assert_clean(tab)
 
 
+# ----------------------------------------------------------------------------- codec (H.264 / H.265)
+
+def codec_group(tab):
+    return tab.page.locator("[data-group=codec]")
+
+
+def test_codec_setting_offers_auto_h264_h265_and_defaults_to_h264(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url)
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    g = codec_group(tab)
+    expect(g).to_have_attribute("aria-label", "Kodek")
+    assert [b.inner_text() for b in g.get_by_role("radio").all()] == ["Auto", "H.264", "H.265"]
+    expect(g.get_by_role("radio", name="H.264")).to_have_attribute("aria-checked", "true")
+    expect(tab.page.locator("#codec-desc")).to_contain_text("H.264")
+    assert_clean(tab)
+
+
+@pytest.mark.parametrize("name, value", [("H.265", "hevc"), ("Auto", "auto"), ("H.264", "h264")])
+def test_codec_choice_is_sent_to_backend(new_tab, ui_url, name, value):
+    tab = open_ui(new_tab, ui_url)
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    g = codec_group(tab)
+    g.get_by_role("radio", name=name, exact=True).click()
+    expect(g.get_by_role("radio", name=name, exact=True)).to_have_attribute("aria-checked", "true")
+    tab.page.wait_for_function(f"airlinx.mock.state().settings.mirror.codec === '{value}' "
+                               f"&& airlinx.mock.state().mirror.options.codec === '{value}'")
+    assert_clean(tab)
+
+
+def test_codec_description_explains_each_choice_in_polish(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url)
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    desc = tab.page.locator("#codec-desc")
+    codec_group(tab).get_by_role("radio", name="H.265").click()
+    expect(desc).to_contain_text("H.265")
+    expect(desc).to_contain_text("wraca do H.264")           # the automatic way back is promised
+    expect(desc).to_contain_text("nie sprawdzono")            # ...and the experimental status is honest
+    codec_group(tab).get_by_role("radio", name="Auto").click()
+    expect(desc).to_contain_text("telewizor")
+    expect(desc).to_contain_text("karta graficzna")
+
+
+def test_codec_keyboard_arrows_move_selection(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url)
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    g = codec_group(tab)
+    g.get_by_role("radio", name="H.264").focus()
+    tab.page.keyboard.press("ArrowRight")
+    expect(g.get_by_role("radio", name="H.265")).to_be_focused()
+    expect(g.get_by_role("radio", name="H.265")).to_have_attribute("aria-checked", "true")
+
+
+def test_no_hevc_encoder_is_explained_and_does_not_block_the_choice(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url, "?mock=nohevc")
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    codec_group(tab).get_by_role("radio", name="H.265").click()
+    expect(tab.page.locator("#codec-desc")).to_contain_text("Nie znaleziono kodera H.265")
+    expect(tab.page.locator("#codec-desc")).to_contain_text("H.264")
+    assert_clean(tab)
+
+
+def test_encoder_line_names_the_hevc_encoder_when_hevc_is_chosen(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url)
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    expect(tab.page.locator("#encoder-info")).to_have_text("NVENC, wybierany automatycznie")
+    codec_group(tab).get_by_role("radio", name="H.265").click()
+    expect(tab.page.locator("#encoder-info")).to_contain_text("H.265 · NVENC")
+
+
+def test_live_stats_show_the_codec_that_really_streams(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url)
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    codec_group(tab).get_by_role("radio", name="H.265").click()
+    tab.page.locator("[data-act=back]").click()
+    share(tab)
+    expect(app(tab)).to_have_attribute("data-session", "live")
+    tab.page.wait_for_function("airlinx.mock.state().mirror.stats")
+    assert mock_state(tab)["mirror"]["stats"]["encoder"].startswith("hevc_nvenc")
+    expect(tab.page.locator("#s-res-k")).to_contain_text("H.265")
+    tab.page.get_by_role("button", name="Szczegóły").click()
+    expect(tab.page.locator("#hop-enc")).to_contain_text("H.265 · NVENC")
+
+
+def test_default_live_stats_say_h264(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url)
+    to_work(tab)
+    share(tab)
+    expect(app(tab)).to_have_attribute("data-session", "live")
+    expect(tab.page.locator("#s-res-k")).to_contain_text("H.264")
+    tab.page.get_by_role("button", name="Szczegóły").click()
+    expect(tab.page.locator("#hop-enc")).to_contain_text("H.264 · NVENC")
+
+
+def test_tv_without_hevc_falls_back_to_h264_with_a_notice(new_tab, ui_url):
+    tab = open_ui(new_tab, ui_url, "?mock=tvnohevc")
+    to_work(tab)
+    open_settings(tab, "Obraz")
+    codec_group(tab).get_by_role("radio", name="H.265").click()
+    tab.page.locator("[data-act=back]").click()
+    share(tab)
+    expect(app(tab)).to_have_attribute("data-session", "live")
+    expect(tab.page.locator("#s-res-k")).to_contain_text("H.264")           # what really streams
+    expect(tab.page.locator(".toast, [role=status]").filter(has_text="H.264").first).to_be_visible()
+    assert mock_state(tab)["settings"]["mirror"]["codec"] == "hevc"          # the choice itself is kept
+    assert_clean(tab)
+
+
 AUDIO_MODES = [("system", "Dźwięk systemu"), ("mic", "Mikrofon"), ("system_mic", "System + mikrofon"),
                ("app", "Wybrana aplikacja")]
 
@@ -530,9 +644,6 @@ def test_device_menu_keyboard_and_focus_return(new_tab, ui_url):
     expect(pill).to_be_focused()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: showMenu() calls focus() while the menu is still visibility:hidden "
-                                       "(ui/app.js showMenu), so opening the device menu from the keyboard leaves "
-                                       "focus on the pill instead of the current device")
 def test_device_menu_moves_focus_into_menu_on_open(new_tab, ui_url):
     tab = open_ui(new_tab, ui_url)
     to_work(tab)
@@ -564,9 +675,6 @@ def test_source_picker_traps_focus_and_restores_it(new_tab, ui_url):
     expect(opener).to_be_focused()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: with prefers-reduced-motion the dialog is still visibility:hidden when "
-                                       "openDialog() focuses it 30 ms later (ui/app.js), so keyboard focus stays "
-                                       "behind the dialog and the Tab trap never engages")
 def test_source_picker_takes_focus_with_reduced_motion(new_tab, ui_url):
     tab = open_ui(new_tab, ui_url, reduced_motion=True)
     to_work(tab)

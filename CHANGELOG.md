@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- H.265 (HEVC) for Cast screen mirroring, chosen in Settings > Obraz > Kodek (Auto, H.264, H.265). The default stays H.264 until H.265 is confirmed on a real TV. H.265 is encoded with NVENC (libx265 on the CPU as a fallback) and offered only when the TV lists it. If the TV rejects it, never acknowledges the stream, or the encoder fails, AirLinx switches to H.264 in the same session.
+
 ## [0.1.0] - 2026-11-10
 
 First public release.

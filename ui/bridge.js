@@ -7,7 +7,7 @@
  * Native: window.webkit.messageHandlers.airlinx.postMessage({id, method, params});
  *         Python answers via airlinx._resolve(id, result, error) and pushes airlinx._emit(event, payload).
  * Browser: a MOCK backend with realistic fake data (same JSON shapes as Python's to_json),
- *          so the UI can be developed standalone. Mock knobs: URL ?mock=nodevices|multi|busy|slow|noapps|nomic|unverified|cpu|wayland,
+ *          so the UI can be developed standalone. Mock knobs: URL ?mock=nodevices|multi|busy|slow|noapps|nomic|unverified|cpu|wayland|nohevc|tvnohevc|devtrust,
  *          or window.airlinx.mock.{setTvBusy(b), setCastUnverified(b), failNext(method, code), setDevices([...]),
  *          setAudioApps([...])}.
  *
@@ -120,11 +120,11 @@
     { id: 'window:0x5e0000a', kind: 'window', name: 'Steam — Biblioteka', geometry: [600, 900, 2000, 1200], xid: 0x5e0000a, _hue: 260 },
   ];
 
-  const DEFAULT_OPTS = { preset: 'game', max_height: 1080, fps: 60, bitrate: 12000000, audio: true, target_delay_ms: 100,
+  const DEFAULT_OPTS = { preset: 'game', max_height: 1080, fps: 60, bitrate: 12000000, audio: true, target_delay_ms: 100, codec: 'h264',
     audio_source: 'system', audio_mic: 'default', audio_app: null, audio_mic_name: null, audio_app_name: null };
-  const MIRROR_KEYS = ['preset', 'max_height', 'fps', 'bitrate', 'audio', 'target_delay_ms'];
+  const MIRROR_KEYS = ['preset', 'max_height', 'fps', 'bitrate', 'audio', 'target_delay_ms', 'codec'];
   const settings = {
-    version: 2, protocol: 'auto', last_device_id: DEVICES[0].id, manual_devices: [], close_to_tray: true,
+    version: 3, protocol: 'auto', last_device_id: DEVICES[0].id, manual_devices: [], close_to_tray: true,
     start_hidden: false, autostart: false, notifications: true,
     mirror: Object.fromEntries(MIRROR_KEYS.map(k => [k, DEFAULT_OPTS[k]])),
     audio: { source: 'system', mic: 'default', mic_name: null, app: null, app_name: null },
@@ -162,7 +162,9 @@
     queue: [], playback: { state: 'idle', position: 0, duration: null, volume: 0.8, muted: false, item_id: null, error: null },
     media_protocol: null, settings, version: '0.1.0',
     encoder: flags.has('cpu') ? 'libx264' : 'h264_nvenc',   // controller: capture.probe_encoders()
+    hevc_encoder: flags.has('nohevc') ? '' : flags.has('cpu') ? 'libx265' : 'hevc_nvenc',   // ...and its H.265 part
     wayland: flags.has('wayland'),                          // controller: sources.is_wayland_session()
+    dev_cast_root: flags.has('devtrust'),                   // controller: castv2.dev_trust_active() (developer mode warning)
   };
 
   let tvBusy = flags.has('busy');
@@ -221,7 +223,8 @@
         bitrate: Math.round(o.bitrate * rnd(0.97, 1.01)), width: w, height: h,
         rtt_ms: Math.round(rnd(2.6, 3.4) * 10) / 10, loss: 0,
         protocol: S.mirror.protocol === 'dlna' ? 'dlna-ts' : 'cast-mirroring',
-        encoder: S.encoder === 'libx264' ? 'libx264' : 'h264_nvenc + scale_cuda',   // capture.encoder_label
+        encoder: streamCodec === 'hevc' ? (S.hevc_encoder === 'libx265' ? 'libx265' : 'hevc_nvenc + scale_cuda')
+          : S.encoder === 'libx264' ? 'libx264' : 'h264_nvenc + scale_cuda',   // capture.encoder_label
         stages: { capture: +cap.toFixed(1), encode: +enc.toFixed(1), network: +net.toFixed(1), tv: +tv.toFixed(1) },
       };
       S.mirror.stats = st;
@@ -230,6 +233,16 @@
   }
 
   function setMirror(patch) { Object.assign(S.mirror, patch); pushMirror(); }
+
+  // core/cast/mirror.py plan_video(): HEVC when ffmpeg can and the TV lists it ("tvnohevc" = it does not).
+  // A forced "hevc" that the TV rejects is re-offered as H.264 with a notice; "auto" simply starts with H.264.
+  let streamCodec = 'h264';
+  function negotiateCodec(pref) {
+    if (pref === 'h264' || !S.hevc_encoder) return 'h264';
+    if (!flags.has('tvnohevc')) return 'hevc';
+    if (pref === 'hevc') toast('Telewizor nie przyjął H.265. Używam H.264.');
+    return 'h264';
+  }
 
   async function mirrorStart(p) {
     const dev = device();
@@ -253,6 +266,7 @@
     S.mode = 'mirror';
     const audio = opts.audio ? resolveAudio(audioSpec()) : null;
     if (audio && audio.note) toast(audio.note);
+    streamCodec = proto === 'cast' ? negotiateCodec(opts.codec) : 'h264';   // DLNA is always H.264
     setMirror({ state: 'connecting', detail: null, device_id: dev.id, source_id: src.id, protocol: proto, options: opts, stats: null, started_at: null, audio });
     settings.last_source_id = src.id; MIRROR_KEYS.forEach(k => { settings.mirror[k] = opts[k]; });
     setTimeout(() => { if (my === mirrorSeq && S.mirror.state === 'connecting') setMirror({ state: 'waiting_tv' }); }, 350 * SLOW);
