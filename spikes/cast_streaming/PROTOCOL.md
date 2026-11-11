@@ -138,3 +138,9 @@ APP(204) FMT=2 'CAST' = receiver frame log – ten TV go nie wysyła.
   statycznym ekranie, jeśli enkoder przestanie produkować ramki (przy capture z XDamage).
 - Przed LAUNCH: GET_STATUS i odmowa, jeśli działa inna aplikacja (zaimplementowane, `--force`).
 - TLS bez weryfikacji: dla produkcji dodać `deviceauth` (weryfikacja certyfikatu urządzenia Cast).
+
+## 5. HEVC (dodane w v0.2.0, `docs/ARCHITECTURE.md` pkt 13)
+- Capabilities TV zawierają `"hevc"` (pkt 1.6). OFFER dla HEVC różni się od H.264 tylko `codecName:"hevc"`, `level` ("4.1"/"5.0"/"5.1" wg rozmiaru obrazu i kl./s) i brakiem
+  `codecParameter` (openscreen: opcjonalny, musi zaczynać się od `hev1`). RTP, AES-CTR, SR, ACK/NACK/PLI są bez zmian: pakietyzacja jest na poziomie ramek, a `K` oznacza IRAP.
+- Ramka = access unit Annex B (AUD, na klatce kluczowej VPS/SPS/PPS, potem slice'y). **Nie zweryfikowane na prawdziwym S85F** (ACK/NACK wyglądają tak samo przy każdym
+  strumieniu, patrz pkt 3): do potwierdzenia wzrokowo (`docs/perf/hevc.md`, „Test na telewizorze”).

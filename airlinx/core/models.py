@@ -39,6 +39,7 @@ class MirrorOptions:
     bitrate: int = 12_000_000
     audio: bool = True
     target_delay_ms: int = 100
+    codec: Literal["auto", "h264", "hevc"] = "h264"   # auto = HEVC when the TV and ffmpeg can, else H.264
     # what the TV hears (core/audio.py); persisted in settings "audio", not "mirror"
     audio_source: str = "system"           # "system" | "mic" | "system_mic" | "app"
     audio_mic: str = "default"             # pulse source name or "default"
@@ -118,6 +119,7 @@ class AppState:
     encoder: Optional[str] = None            # H.264 encoder for mirroring: "h264_nvenc" | "libx264" | "" (none found)
                                              # | None (not probed yet)
     wayland: bool = False                    # Wayland session: screen capture may be black (files still play)
+    hevc_encoder: Optional[str] = None       # H.265 encoder: "hevc_nvenc" | "libx265" | "" (none found) | None (not probed)
 
 
 class AirlinxError(Exception):

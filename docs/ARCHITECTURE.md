@@ -16,14 +16,14 @@ airlinx/
   app.py                 # Gtk.Application, okno, cykl życia        (shell)
   bridge.py              # JS ⇄ Python RPC + eventy                 (shell)
   tray.py                # SNI + dbusmenu                            (shell)
-  settings.py            # ~/.config/airlinx/config.json             (shell)
+  settings.py            # ~/.config/airlinx/config.json (schemat v3)  (shell)
   runtime.py             # wątek asyncio + helpery GLib<->asyncio    (shell)
   controller.py          # orkiestrator: stan aplikacji, API dla UI  (shell)
   core/
     models.py            # dataclasses współdzielone (poniżej)        (shell — tworzy jako pierwszy)
     discovery.py         # mDNS _googlecast + SSDP MediaRenderer      (media)
     sources.py           # monitory (xrandr) i okna (wmctrl/xprop/Xlib) + miniatury   (cast)
-    capture.py           # ffmpeg: x11grab→h264_nvenc, pulse (1 źródło lub miks 2)→opus  (cast)
+    capture.py           # ffmpeg: x11grab→h264_nvenc | hevc_nvenc (libx264/libx265 zapasowo), pulse (1 źródło lub miks 2)→opus  (cast)
     audio.py             # źródło dźwięku: system / mikrofon / system+mikrofon / aplikacja (pactl)
     cast/castv2.py       # TLS CASTv2 kanał (z spike)                 (cast)
     cast/rtp.py          # AES-CTR, pakietyzacja, RTCP (z spike)      (cast)
@@ -55,6 +55,7 @@ Właściciele: **shell**, **cast**, **media**, **ui** — każdy agent edytuje t
 @dataclass class MirrorOptions: preset: Literal["game","cinema"]="game"
                               max_height: int = 1080; fps: int = 60; bitrate: int = 12_000_000
                               audio: bool = True; target_delay_ms: int = 100
+                              codec: Literal["auto","h264","hevc"] = "h264"   # pkt 13
                               audio_source: str = "system"   # "system"|"mic"|"system_mic"|"app"
                               audio_mic: str = "default"; audio_app: str|None = None
                               audio_mic_name: str|None = None; audio_app_name: str|None = None
@@ -185,3 +186,26 @@ Wszystkie payloady to JSON z dataclass (`dataclasses.asdict`, bytes → `data:im
     - Profile Balans (1440p) i Kino (4K) są w UI oznaczone jako eksperymentalne i nie mają obiecanego opóźnienia w ms; liczba (około 110 ms) jest tylko przy Gra / praca.
     - Pliki `.desktop`: `install.sh` (`desktop_exec`) i `app.desktop_exec_quote` zapisują `Exec=` w cudzysłowach wg Desktop Entry Spec, więc `$HOME` ze spacją nie dzieli
       polecenia. Mock domyślnie ma jeden telewizor (`?mock=multi` dodaje drugi).
+13. **Kodek wideo: H.264 / H.265 (v0.2.0, `mirror.codec`).**
+    - Ustawienie `mirror.codec ∈ {"auto","h264","hevc"}` (`MirrorOptions.codec`, schemat ustawień **v3**). **Domyślnie `"h264"`**, bo HEVC nie był jeszcze sprawdzony na
+      prawdziwym telewizorze (S85F); `"auto"` i `"hevc"` są opt-in. Migracja v2→v3 dopisuje `"h264"` istniejącym konfiguracjom, więc późniejsza zmiana domyślnej wartości ich nie ruszy.
+      Nieznana wartość (plik, RPC `mirror.update`, `settings.set`) wraca do `"h264"`. Zmiana w trakcie transmisji to zmiana strukturalna (`is_structural_change`): nowy OFFER, restart kodera.
+    - Wybór kodeka (`cast/mirror.py: plan_video(pref, caps, tv_codecs, exclude)`) daje uporządkowaną listę `(kodek, koder ffmpeg, gpu_scale)`, a ostatni element to plan B:
+      `h264` → tylko H.264. `auto` → HEVC pierwszy tylko gdy ffmpeg ma koder (`hevc_nvenc`, inaczej `libx265`) **i** TV wymienia `"hevc"` w `mediaCaps`
+      (brak odpowiedzi = nieznane = H.264). `hevc` → HEVC pierwszy, chyba że lista TV go nie zawiera (brak odpowiedzi = próbujemy). H.264 zostaje planem B, gdy jest jego koder.
+    - Możliwości TV: `GET_CAPABILITIES` na `remoting` (odpowiedź przychodzi na `webrtc`, `capabilities.mediaCaps`), tylko gdy HEVC jest kandydatem; limit `CAPS_TIMEOUT` = 2 s.
+    - OFFER: `codecName:"hevc"`, `profile:"main"`, `level` z `hevc_level(w,h,fps)` ("4.1" do 1080p60, "5.0" do 1440p60 i 4K30, "5.1" 4K60). `codecParameter` pomijamy celowo: jest opcjonalny,
+      openscreen wymaga prefiksu `hev1`, a Chrome go nie wysyła. Reszta pól jak dla H.264 (`rtpPayloadType` 96, `timeBase` 1/90000).
+    - **Powrót do H.264 (automatyczny, ta sama sesja Cast, bez nowego LAUNCH):** (a) ANSWER odrzuca strumień wideo albo nie przychodzi w 10 s → drugi OFFER z H.264 i toast „Telewizor nie przyjął H.265. Używam H.264.”;
+      (b) TV przyjął OFFER, ale nie potwierdza ramek (`STALL_TIMEOUT_START`) albo koder HEVC pada → `_hevc_failed`: `stall` → reconnect z H.264 (i toast „H.265 nie działa z tym telewizorem. Przełączam na H.264.”);
+      TV trafia do `mirror._hevc_bad` (pamięć procesu), więc `auto` nie próbuje HEVC drugi raz; jawne `hevc` zawsze próbuje. Bez planu B (brak kodera H.264) błąd kodera jest zwykłym `fatal`.
+    - Przechwytywanie (`core/capture.py`): ffmpeg 4.4 nie zapisuje HEVC w FLV, więc koder pisze surowy Annex B (`-f hevc`, `-aud 1` / x265 `aud=1:repeat-headers=1`), a `HevcParser` tnie go na access units po AUD
+      (NAL 35). `key` = slice IRAP (NAL 16–21); klatka kluczowa ma zawsze VPS/SPS/PPS (brakujące dopisuje z pamięci); puste jednostki są odrzucane; bajty przed pierwszym AUD
+      i ogon klatki przeciętej `flush()` są odrzucane (`discarded_bytes`). Surowy strumień nie ma znaczników czasu: czas przechwycenia = moment, w którym w paczce pojawił się początek AU, minus `ENCODE_FLOOR_S`,
+      rosnąco (H.264 liczy go z FLV jak dotąd). AU kończy się dopiero przy następnym AUD, więc czytnik po `HEVC_IDLE_FLUSH_S` (3 ms ciszy w rurze) oddaje oczekującą jednostkę, żeby nie dokładać klatki opóźnienia.
+      Parametry kodera jak dla H.264 (`p1`, `tune ull`, CBR, bez B-klatek, GOP 2 s, `forced-idr`); ten sam mechanizm restartu kodera na PLI / zmianę bitrate.
+    - `cast/rtp.py` nie zakłada kodeka: pakietyzacja jest na poziomie ramek (flaga `K` = klatka kluczowa, `RefFID`), a szyfrowanie i SR są takie same.
+    - Sonda `probe_encoders()` zwraca też `hevc_nvenc` i `x265`. `AppState.hevc_encoder: str|None` (`"hevc_nvenc"`, `"libx265"`, `""` = brak, `None` = jeszcze nie sprawdzono) obok `encoder` (pkt 12).
+      `Stats.encoder` zawsze mówi, co naprawdę koduje (np. `"hevc_nvenc + scale_cuda"`), więc UI pokazuje faktyczny kodek także po powrocie do H.264. DLNA mirror zawsze używa H.264.
+    - UI: Ustawienia → Obraz → „Kodek” (segment Auto / H.264 / H.265, `data-group="codec"`) z opisem po polsku; linia „Koder wideo” nazywa koder H.265. Mock: `?mock=nohevc` (brak kodera), `?mock=tvnohevc` (TV odrzuca HEVC).
+    - Pomiary i rekomendacje bitrate dla HEVC: `docs/perf/hevc.md`. Skrypt: `scripts/bench_hevc.py`. Test na prawdziwym TV (ręcznie): `docs/perf/hevc.md`, sekcja „Test na telewizorze”.
