@@ -7,7 +7,7 @@
  * Native: window.webkit.messageHandlers.airlinx.postMessage({id, method, params});
  *         Python answers via airlinx._resolve(id, result, error) and pushes airlinx._emit(event, payload).
  * Browser: a MOCK backend with realistic fake data (same JSON shapes as Python's to_json),
- *          so the UI can be developed standalone. Mock knobs: URL ?mock=nodevices|multi|busy|slow|noapps|nomic|unverified|cpu|wayland,
+ *          so the UI can be developed standalone. Mock knobs: URL ?mock=nodevices|multi|busy|slow|noapps|nomic|unverified|cpu|wayland|devtrust,
  *          or window.airlinx.mock.{setTvBusy(b), setCastUnverified(b), failNext(method, code), setDevices([...]),
  *          setAudioApps([...])}.
  *
@@ -163,6 +163,7 @@
     media_protocol: null, settings, version: '0.1.0',
     encoder: flags.has('cpu') ? 'libx264' : 'h264_nvenc',   // controller: capture.probe_encoders()
     wayland: flags.has('wayland'),                          // controller: sources.is_wayland_session()
+    dev_cast_root: flags.has('devtrust'),                   // controller: castv2.dev_trust_active() (developer mode warning)
   };
 
   let tvBusy = flags.has('busy');

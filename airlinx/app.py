@@ -439,6 +439,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--version", action="version", version=f"AirLinx {__version__}")
     args = ap.parse_args(argv)
     configure_logging(args.debug)
+    # Developer mode only (AIRLINX_DEV=1 + AIRLINX_DEV_CAST_ROOT=<pem>); off and silent otherwise. See castv2.py.
+    from .core.cast.castv2 import configure_dev_trust
+
+    configure_dev_trust()
     GLib.set_prgname("airlinx")
     GLib.set_application_name("AirLinx")
     config_dir().mkdir(parents=True, exist_ok=True)

@@ -233,9 +233,112 @@ EUREKA_ROOT_CA_B64 = (
 )
 
 
-def cast_trust_roots() -> list[x509.Certificate]:
+def production_roots() -> list[x509.Certificate]:
     return [x509.load_der_x509_certificate(base64.b64decode("".join(b)))
             for b in (CAST_ROOT_CA_B64, EUREKA_ROOT_CA_B64)]
+
+
+# --------------------------------------------------------------------------------------
+# Developer trust hook (tools/virtual_tv, docs/VIRTUAL_TV.md)
+#
+# A virtual TV cannot carry a Google-issued device certificate, so its device-auth reply chains to a
+# throw-away TEST root CA instead. AirLinx may be told to trust such a root, but only like this:
+#   * off by default; the list below is empty unless something sets it in THIS process;
+#   * never read from config.json / settings (nothing persistent can enable it);
+#   * from the environment only when BOTH AIRLINX_DEV=1 and AIRLINX_DEV_CAST_ROOT=<PEM file> are set;
+#   * every activation logs a loud warning and AppState.dev_cast_root makes the UI show it;
+#   * a TV authenticated through a dev root is pinned with dev=true and in a separate pin file
+#     (known_tvs.dev.json), so the test identity can neither replace nor be mistaken for a real TV;
+#   * tests inject roots with set_dev_roots()/dev_roots(), without touching the environment.
+# The risk it guards against: whoever holds the private key of a trusted dev root can impersonate any
+# TV to this AirLinx process (device-auth is what stops a LAN attacker from posing as the TV).
+# --------------------------------------------------------------------------------------
+DEV_ENV = "AIRLINX_DEV"
+DEV_ROOT_ENV = "AIRLINX_DEV_CAST_ROOT"
+MAX_DEV_ROOT_PEM = 64 * 1024
+MAX_DEV_ROOTS = 4
+_dev_roots: list[x509.Certificate] = []
+
+
+def cast_trust_roots() -> list[x509.Certificate]:
+    return production_roots() + list(_dev_roots)
+
+
+def dev_trust_active() -> bool:
+    return bool(_dev_roots)
+
+
+def dev_trust_subjects() -> list[str]:
+    return [c.subject.rfc4514_string() for c in _dev_roots]
+
+
+def _check_dev_root(c: x509.Certificate, now: float) -> None:
+    if any(c.subject == p.subject for p in production_roots()):
+        raise ValueError("a dev root must not reuse the subject of a real Cast root")
+    try:
+        bc = c.extensions.get_extension_for_class(x509.BasicConstraints).value
+    except x509.ExtensionNotFound:
+        raise ValueError("dev root has no basicConstraints") from None
+    if not bc.ca:
+        raise ValueError("dev root is not a CA certificate")
+    if c.subject != c.issuer or not _issued_by(c, c):
+        raise ValueError("dev root is not self-signed")
+    if not _not_before(c) - CLOCK_SKEW <= now <= _not_after(c) + CLOCK_SKEW:
+        raise ValueError("dev root is not valid now")
+
+
+def set_dev_roots(certs: list[x509.Certificate]) -> list[str]:
+    """Replace the dev roots of this process (``[]`` switches the hook off). Validates every certificate.
+    Meant for tests and for :func:`configure_dev_trust`; logs a loud warning when anything is trusted."""
+    now = time.time()
+    if len(certs) > MAX_DEV_ROOTS:
+        raise ValueError("too many dev roots")
+    for c in certs:
+        _check_dev_root(c, now)
+    _dev_roots[:] = list(certs)
+    subjects = dev_trust_subjects()
+    if subjects:
+        log.warning("DEVELOPER MODE: trusting TEST Cast root CA(s) %s for device authentication. A holder of "
+                    "its key can impersonate any TV to this AirLinx. NEVER use this for daily use.", subjects)
+    return subjects
+
+
+class dev_roots:  # noqa: N801 (context manager)
+    """``with dev_roots([cert]):`` injects test roots without the environment and restores the old state."""
+
+    def __init__(self, certs: list[x509.Certificate]):
+        self.certs = certs
+        self._old: list[x509.Certificate] = []
+
+    def __enter__(self) -> list[str]:
+        self._old = list(_dev_roots)
+        return set_dev_roots(self.certs)
+
+    def __exit__(self, *exc: object) -> None:
+        _dev_roots[:] = self._old
+
+
+def configure_dev_trust(environ: Optional[dict] = None) -> list[str]:
+    """Process start-up: enable the dev roots from the environment, only with AIRLINX_DEV=1 *and* a root file.
+    Never raises: a bad setup leaves the hook off. Returns the trusted subjects."""
+    env = os.environ if environ is None else environ
+    path, flag = env.get(DEV_ROOT_ENV), env.get(DEV_ENV)
+    _dev_roots.clear()
+    if not path:
+        return []
+    if flag != "1":
+        log.warning("%s is set but %s=1 is not: ignoring it (developer trust stays off)", DEV_ROOT_ENV, DEV_ENV)
+        return []
+    try:
+        p = Path(path)
+        if p.stat().st_size > MAX_DEV_ROOT_PEM:
+            raise ValueError("file too large")
+        certs = x509.load_pem_x509_certificates(p.read_bytes())
+        return set_dev_roots(certs)
+    except (OSError, ValueError) as e:
+        _dev_roots.clear()
+        log.error("ignoring %s=%s: %s (developer trust stays off)", DEV_ROOT_ENV, path, e)
+        return []
 
 
 class TvCertChangedError(AirlinxError):
@@ -266,6 +369,7 @@ class DeviceIdentity:
     issuer: str
     audio_only: bool
     tls_sha256: str
+    dev: bool = False     # chains to a developer-mode TEST root (see the hook above), not to a Google root
 
 
 def _pb_fields(buf: bytes) -> dict[int, list]:
@@ -471,7 +575,7 @@ def verify_auth_response(resp: dict, peer_der: bytes, nonce: bytes, now: Optiona
                                           serialization.PublicFormat.SubjectPublicKeyInfo)
     return DeviceIdentity(subject=leaf.subject.rfc4514_string(), spki_sha256=hashlib.sha256(spki).hexdigest(),
                           issuer=leaf.issuer.rfc4514_string(), audio_only=_is_audio_only(path),
-                          tls_sha256=hashlib.sha256(peer_der).hexdigest())
+                          tls_sha256=hashlib.sha256(peer_der).hexdigest(), dev=path[-1] in _dev_roots)
 
 
 def known_tvs_path() -> Path:
@@ -479,7 +583,8 @@ def known_tvs_path() -> Path:
     if override:
         return Path(override)
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
-    return Path(base) / "airlinx" / "known_tvs.json"
+    # developer trust must never read or write the real pin store
+    return Path(base) / "airlinx" / ("known_tvs.dev.json" if _dev_roots else "known_tvs.json")
 
 
 def cert_fingerprint(der: bytes) -> str:
@@ -546,10 +651,15 @@ def check_receiver_identity(key: str, peer_der: bytes, identity: Optional[Device
             log.error("Cast device identity for %s changed: %s -> %s", key, entry["device_subject"],
                       identity.subject)
             raise TvCertChangedError(key)
+        if entry and entry.get("device_subject") and bool(entry.get("dev")) != identity.dev:
+            log.error("Cast device identity for %s switched between a real and a developer-test root", key)
+            raise TvCertChangedError(key)
         result = "match" if entry and entry.get("device_subject") else "pinned"
         pins[key] = {"auth": "device", "device_subject": identity.subject, "device_spki": identity.spki_sha256,
                      "device_issuer": identity.issuer, "tls": tls,
                      "first_seen": (entry or {}).get("first_seen", int(now))}
+        if identity.dev:
+            pins[key]["dev"] = True
         _save_pins(path, pins)
         return result
     # no device-auth from this receiver
@@ -925,7 +1035,8 @@ async def get_running_app(host: str, port: int = 8009, timeout: float = 8.0,
 __all__ = [
     "CastChannel", "CastMessage", "CastError", "ChannelClosed", "TvCertChangedError", "forget_tv_cert",
     "check_cert_pin", "cert_fingerprint", "known_tvs_path", "TvAuthFailedError", "DeviceIdentity",
-    "check_receiver_identity", "verify_auth_response", "verify_device_chain", "NS_DEVICEAUTH", "encode_message", "decode_message",
+    "check_receiver_identity", "verify_auth_response", "configure_dev_trust", "dev_trust_active", "set_dev_roots",
+    "dev_roots", "cast_trust_roots", "verify_device_chain", "NS_DEVICEAUTH", "encode_message", "decode_message",
     "frame_message", "get_running_app", "MIRRORING_APP_ID", "NS_RECEIVER", "NS_WEBRTC", "NS_MEDIA",
     "NS_REMOTING", "NS_CONNECTION", "NS_HEARTBEAT", "RECEIVER_ID",
 ]
