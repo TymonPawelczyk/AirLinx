@@ -434,7 +434,10 @@
 
 /* ---------- Ograniczony ruch ---------- */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
+  /* Przejścia wyłączone (0s), nie skrócone do 0,01 ms: nawet tak krótkie przejście visibility (także to dziedziczone
+     przez elementy potomne menu i arkusza) kończy się dopiero po następnej klatce, więc focus() tuż po otwarciu
+     trafiał w element jeszcze visibility:hidden. */
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; transition-delay: 0s !important; }
   .dot[data-s="live"]::after, .tally::after { display: none; }
   .app[data-screen="discovery"] .radar circle { animation: none !important; opacity: .35; transform: scale(var(--s, 1)); }
   .spinner { animation: none; border-top-color: rgba(243,242,239,.18); border-right-color: #3DF2A0; }
