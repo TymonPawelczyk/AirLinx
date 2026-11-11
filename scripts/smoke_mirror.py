@@ -3,6 +3,7 @@
 
 Usage: .venv/bin/python scripts/smoke_mirror.py --tv TV_IP [--seconds 12] [--monitor DP-4]
                                                 [--no-audio] [--update]  [--force]
+                                                [--codec auto|h264|hevc] [--height 1080]
                                                 [--audio-source system|mic|system_mic|app] [--mic NAME]
                                                 [--app KEY] [--switch-audio SOURCE] [--play]
 The TV address comes from --tv or the AIRLINX_TV_IP environment variable; there is no default.
@@ -43,7 +44,9 @@ async def main(a: argparse.Namespace) -> int:
         return {"audio_source": source, "audio_mic": a.mic or "default", "audio_app": a.app,
                 "audio_app_name": a.app}
 
-    opts = models.MirrorOptions(audio=not a.no_audio, fps=a.fps, bitrate=a.bitrate, **audio_opts(a.audio_source))
+    opts = models.MirrorOptions(audio=not a.no_audio, fps=a.fps, bitrate=a.bitrate, max_height=a.height, codec=a.codec,
+                                **audio_opts(a.audio_source))
+    print(f"codec setting: {a.codec}, {a.height}p{a.fps}, {a.bitrate / 1e6:.0f} Mb/s")
     print(f"audio: {'off' if a.no_audio else a.audio_source}" + (f" -> {a.switch_audio}" if a.switch_audio else ""))
     player = None
     if a.play:
@@ -72,12 +75,13 @@ async def main(a: argparse.Namespace) -> int:
                 print("AUDIO before switch", {k: m.audio.snapshot()[k] for k in ("frames", "acked")})
             print(f"update: audio source -> {a.switch_audio} (audio capture restart only)")
             await s.update(models.MirrorOptions(audio=not a.no_audio, fps=a.fps, bitrate=a.bitrate,
-                                                **audio_opts(a.switch_audio)))
+                                                max_height=a.height, codec=a.codec, **audio_opts(a.switch_audio)))
             await asyncio.sleep(a.seconds / 2)
         elif a.update:
             await asyncio.sleep(a.seconds / 2)
             print("update: bitrate -> 8 Mb/s (encoder restart)")
-            await s.update(models.MirrorOptions(audio=not a.no_audio, fps=a.fps, bitrate=8_000_000))
+            await s.update(models.MirrorOptions(audio=not a.no_audio, fps=a.fps, bitrate=8_000_000,
+                                                max_height=a.height, codec=a.codec))
             await asyncio.sleep(a.seconds / 2)
         else:
             await asyncio.sleep(a.seconds)
@@ -106,6 +110,9 @@ if __name__ == "__main__":
     ap.add_argument("--monitor", default="DP-4")
     ap.add_argument("--fps", type=int, default=60)
     ap.add_argument("--bitrate", type=int, default=12_000_000)
+    ap.add_argument("--height", type=int, default=1080, help="output height (1080, 1440, 2160)")
+    ap.add_argument("--codec", default="h264", choices=("auto", "h264", "hevc"),
+                    help="video codec; STATS 'enc=' shows what really streamed")
     ap.add_argument("--no-audio", action="store_true")
     ap.add_argument("--update", action="store_true", help="change bitrate mid-run")
     ap.add_argument("--force", action="store_true")

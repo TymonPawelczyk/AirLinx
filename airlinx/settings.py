@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 DEFAULTS: dict[str, Any] = {
     "version": SCHEMA_VERSION,
@@ -30,6 +30,7 @@ DEFAULTS: dict[str, Any] = {
         "bitrate": 12_000_000,
         "audio": True,
         "target_delay_ms": 100,
+        "codec": "h264",           # "auto" | "h264" | "hevc" (auto = HEVC when the TV and ffmpeg can)
     },
     "audio": {                     # what the TV hears while mirroring (switch: mirror.audio)
         "source": "system",        # "system" | "mic" | "system_mic" | "app"
@@ -45,6 +46,7 @@ DEFAULTS: dict[str, Any] = {
 
 ALLOWED_PROTOCOLS = ("auto", "cast", "dlna")
 AUDIO_SOURCES = ("system", "mic", "system_mic", "app")
+CODECS = ("auto", "h264", "hevc")
 
 
 def config_dir() -> Path:
@@ -91,7 +93,12 @@ def _migrate(data: dict) -> dict:
         audio = data.get("audio") if isinstance(data.get("audio"), dict) else {}
         audio.setdefault("source", "system")
         data["audio"] = audio
-        data["version"] = 2
+        data["version"] = ver = 2
+    if ver < 3:  # v3: video codec; existing users stay on H.264 whatever the default becomes later
+        mirror_sec: dict = data["mirror"] if isinstance(data.get("mirror"), dict) else {}
+        mirror_sec.setdefault("codec", "h264")
+        data["mirror"] = mirror_sec
+        data["version"] = 3
     return data
 
 
@@ -141,6 +148,9 @@ class Settings:
         _reset_wrong_types(self._data, DEFAULTS)
         if self._data.get("protocol") not in ALLOWED_PROTOCOLS:
             self._data["protocol"] = "auto"
+        mirror = self._data.get("mirror")
+        if isinstance(mirror, dict) and mirror.get("codec") not in CODECS:
+            mirror["codec"] = DEFAULTS["mirror"]["codec"]
         if not isinstance(self._data.get("manual_devices"), list):
             self._data["manual_devices"] = []
         audio = self._data.get("audio")
