@@ -57,7 +57,9 @@ The receiver accepts `h264` and `hevc` in an OFFER (the S85F advertises `hevc` i
 acceptable video stream the sender listed, and records `cast/video.h264` or `cast/video.h265` (demuxers `-f h264` /
 `-f hevc`). `--codecs h264` restricts it to test negotiation (an OFFER without an acceptable video stream gets an
 ANSWER with `result:"error"`). `tests/virtual_tv/test_codecs.py` drives the receiver with a raw sender (a real
-libx264/libx265 stream through AirLinx's RTP packetizer); the `MirrorSession` HEVC test is skipped until the sender can offer hevc.
+libx264/libx265 stream through AirLinx's RTP packetizer); the last test in that file runs the real `MirrorSession` with
+the real encoder probe and skips only when ffmpeg has no HEVC encoder;
+`test_hevc.py` holds the broader HEVC session tests.
 
 ### Failure modes (`--fail=` / `CastReceiver(fail=...)`)
 
