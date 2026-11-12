@@ -588,3 +588,34 @@ async def test_known_hosts_are_kept_when_the_host_limit_is_hit(monkeypatch):
     d._fetch_description = fetch
     await d._ssdp_scan(timeout=0.7)
     assert "http://192.168.1.10:9197/dmr" in tried and len(tried) == disc.SSDP_MAX_HOSTS
+
+
+@pytest.mark.asyncio
+async def test_rescan_keeps_last_good_address_when_network_drops(monkeypatch):
+    ips = iter(["192.168.1.16", "127.0.0.1", "127.0.0.1", "192.168.1.16", "10.0.0.5"])
+    monkeypatch.setattr(disc, "get_lan_ip", lambda: next(ips))
+    d = disc.Discovery(lambda devs: None, rescan_interval=3600)
+    events = []
+
+    async def fake_start_mdns():
+        events.append(("start", d.interface_ip))
+
+    async def fake_stop_mdns():
+        events.append(("stop", d.interface_ip))
+
+    async def fake_ssdp(target=None, timeout=3.0):
+        return []
+
+    monkeypatch.setattr(d, "_start_mdns", fake_start_mdns)
+    monkeypatch.setattr(d, "_stop_mdns", fake_stop_mdns)
+    monkeypatch.setattr(d, "_ssdp_scan", fake_ssdp)
+    await _start_without_loop(d)
+    await d.rescan()
+    await d.rescan()
+    assert d.interface_ip == "192.168.1.16"     # cable pulled: do not fall back to loopback
+    await d.rescan()                            # lease is back, same address: nothing to rebind
+    await d.rescan()                            # genuinely new network
+    assert d.interface_ip == "10.0.0.5"
+    assert [e[1] for e in events if e[0] == "start"] == ["192.168.1.16", "10.0.0.5"]
+    assert len([e for e in events if e[0] == "stop"]) == 1          # a single restart, for the real change
+    await d.stop()
