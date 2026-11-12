@@ -595,8 +595,7 @@ class VideoCapture:
         return v[len(v) // 2]
 
     async def start(self) -> None:
-        self._stopping = False
-        self._stop_evt.clear()
+        # single-use: no flag reset here, so a stop() that won the race against start() stays final
         proc = await self._spawn()
         if proc is None:
             return
@@ -777,7 +776,7 @@ class AudioCapture:
         self.reanchors = 0
 
     async def start(self) -> None:
-        self._stopping = False
+        # single-use: no flag reset here, so a stop() that won the race against start() stays final
         await self._launch()
 
     async def _launch(self) -> None:
