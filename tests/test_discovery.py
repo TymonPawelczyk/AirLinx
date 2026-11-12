@@ -318,3 +318,95 @@ async def test_explicit_interface_ip_is_never_replaced(monkeypatch):
     await d.rescan()
     assert d.interface_ip == "192.0.2.16"
     await d.stop()
+
+
+# ------------------------------------------------------------------ hardening: SSDP scan cannot be stalled
+
+def _fake_ssdp_endpoint(monkeypatch, datagrams):
+    """Replace the UDP endpoint: every sendto() makes `datagrams` [(bytes, (ip, port))] arrive."""
+    class T:
+        def __init__(self, p):
+            self.p = p
+
+        def sendto(self, data, addr):
+            loop = asyncio.get_running_loop()
+            for raw, src in datagrams:
+                loop.call_soon(self.p.datagram_received, raw, src)
+
+        def close(self):
+            pass
+
+    async def ep(factory, sock=None, **kw):
+        sock.close()
+        p = factory()
+        return T(p), p
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "create_datagram_endpoint", ep)
+
+
+@pytest.mark.asyncio
+async def test_ssdp_flood_from_one_host_fetches_one_description_and_scan_stays_bounded(monkeypatch):
+    """1000 replies with different LOCATION ports from one IP, and a description server that never answers."""
+    import time
+
+    flood = [(SSDP_RESPONSE.replace(b":9197/", f":{20000 + i}/".encode()), ("192.0.2.10", 1900))
+             for i in range(1000)]
+    _fake_ssdp_endpoint(monkeypatch, flood)
+    monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 1.0)
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+    fetched = []
+
+    async def hanging_fetch(loc):
+        fetched.append(loc)
+        await asyncio.sleep(3600)
+
+    d._fetch_description = hanging_fetch
+    t0 = time.monotonic()
+    await d._ssdp_scan(timeout=0.7)
+    assert time.monotonic() - t0 < 4
+    assert len(fetched) == 1                      # at most one reply per sender IP
+    assert d.devices == []
+
+
+@pytest.mark.asyncio
+async def test_ssdp_many_hosts_are_fetched_concurrently_within_the_deadline(monkeypatch):
+    import time
+
+    hosts = [(SSDP_RESPONSE.replace(b"192.0.2.10", f"192.0.2.{h}".encode()), (f"192.0.2.{h}", 1900))
+             for h in range(20, 60)]
+    _fake_ssdp_endpoint(monkeypatch, hosts)
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+    active = peak = 0
+
+    async def slow_fetch(loc):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.3)
+        active -= 1
+        return disc.parse_description(DESCRIPTION)
+
+    d._fetch_description = slow_fetch
+    t0 = time.monotonic()
+    await d._ssdp_scan(timeout=0.7)
+    assert time.monotonic() - t0 < 0.7 + 40 * 0.3 / 2   # sequential would need 12 s
+    assert 1 < peak <= disc.SSDP_FETCH_CONCURRENCY
+    assert len(d.devices) == 40
+
+
+@pytest.mark.asyncio
+async def test_ssdp_unresponsive_first_host_does_not_block_the_others(monkeypatch):
+    hosts = [(SSDP_RESPONSE.replace(b"192.0.2.10", f"192.0.2.{h}".encode()), (f"192.0.2.{h}", 1900))
+             for h in (21, 22)]
+    _fake_ssdp_endpoint(monkeypatch, hosts)
+    monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 1.0)
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+
+    async def fetch(loc):
+        if "192.0.2.21" in loc:
+            await asyncio.sleep(3600)
+        return disc.parse_description(DESCRIPTION)
+
+    d._fetch_description = fetch
+    await d._ssdp_scan(timeout=0.7)
+    assert [x.ip for x in d.devices] == ["192.0.2.22"]
