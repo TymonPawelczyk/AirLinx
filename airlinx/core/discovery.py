@@ -151,6 +151,8 @@ class Discovery:
                  rescan_interval: float = RESCAN_INTERVAL, enable_mdns: bool = True):
         self.on_change = on_change
         self.interface_ip = interface_ip
+        self._explicit_ip = interface_ip is not None   # an address given by the caller is never auto-replaced
+        self._started = False
         self.rescan_interval = rescan_interval
         self.enable_mdns = enable_mdns
         self._entries: dict[str, _Entry] = {}   # keyed by IP
@@ -173,6 +175,7 @@ class Discovery:
         self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4))
         if self.enable_mdns:
             await self._start_mdns()
+        self._started = True
         self._task = asyncio.ensure_future(self._loop())
 
     async def stop(self) -> None:
@@ -182,18 +185,43 @@ class Discovery:
                 await self._task
         for t in list(self._bg):
             t.cancel()
+        await self._stop_mdns()
+        if self._session:
+            await self._session.close()
+        self._session = None
+        self._started = False
+
+    async def _stop_mdns(self) -> None:
         if self._browser:
             with contextlib.suppress(Exception):
                 await self._browser.async_cancel()
         if self._azc:
             with contextlib.suppress(Exception):
                 await self._azc.async_close()
-        if self._session:
-            await self._session.close()
-        self._browser = self._azc = self._session = None
+        self._browser = self._azc = None
+
+    async def _refresh_interface(self) -> None:
+        """Autostart can run before the network is up (get_lan_ip() == 127.0.0.1) and DHCP can move us later:
+        re-derive the address on every scan and, when it changed, rebind SSDP (it reads self.interface_ip per scan)
+        and restart mDNS (zeroconf is bound to one interface)."""
+        if self._explicit_ip or not self._started:
+            return
+        ip = get_lan_ip()
+        if ip == self.interface_ip:
+            return
+        log.info("LAN address changed %s -> %s, rebinding discovery", self.interface_ip, ip)
+        old, self.interface_ip = self.interface_ip, ip
+        if self.enable_mdns:
+            await self._stop_mdns()
+            try:
+                await self._start_mdns()
+            except Exception:
+                self.interface_ip = old        # mDNS is down now: keep the mismatch so the next scan retries
+                raise
 
     async def rescan(self) -> None:
         async with self._scan_lock:
+            await self._refresh_interface()
             await self._ssdp_scan()
             for ip, e in list(self._entries.items()):
                 if e.manual and not e.device.online:
