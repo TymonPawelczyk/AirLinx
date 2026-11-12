@@ -908,25 +908,28 @@ class MirrorSession:
 
     # ---- supervision -----------------------------------------------------------------
     async def _supervise(self) -> None:
+        # Events are handled under _op_lock so a reconnect never interleaves with update()/switch_source(), which
+        # also stop/start media. No deadlock: stop() cancels (and awaits) this task *before* taking the lock.
         while True:
             kind, detail = await self._events.get()
-            if self._stopping:
-                return
-            log.info("supervisor event: %s %s", kind, detail or "")
-            if kind == "app_gone":
-                await self._teardown(stop_app=False)
-                self._set_state("stopped", APP_GONE_PL)
-                return
-            if kind == "fatal":
-                await self._teardown(stop_app=True)
-                self._set_state("error", detail)
-                return
-            if kind in ("channel_lost", "stall"):
-                if not await self._reconnect(detail):
+            async with self._op_lock:
+                if self._stopping:
                     return
-                self._events = asyncio.Queue()  # drop stale events from the old session
-                if self._window_gone:           # ...but not the end of the shared window
-                    self._events.put_nowait(("fatal", WINDOW_GONE_PL))
+                log.info("supervisor event: %s %s", kind, detail or "")
+                if kind == "app_gone":
+                    await self._teardown(stop_app=False)
+                    self._set_state("stopped", APP_GONE_PL)
+                    return
+                if kind == "fatal":
+                    await self._teardown(stop_app=True)
+                    self._set_state("error", detail)
+                    return
+                if kind in ("channel_lost", "stall"):
+                    if not await self._reconnect(detail):
+                        return
+                    self._events = asyncio.Queue()  # drop stale events from the old session
+                    if self._window_gone:           # ...but not the end of the shared window
+                        self._events.put_nowait(("fatal", WINDOW_GONE_PL))
 
     async def _reconnect(self, reason: Optional[str]) -> bool:
         """Re-attach to our running session (new channel + new OFFER). Never re-LAUNCHes."""

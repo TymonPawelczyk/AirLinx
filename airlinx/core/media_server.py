@@ -9,6 +9,9 @@ URL layout (tokens are unguessable, `secrets.token_urlsafe`):
   /sub/<token>/<n>.vtt|.srt  subtitle track n (WebVTT for Cast, SRT for Samsung DLNA)  [?t=sec shifts]
   /live/<token>/<name>       live MPEG-TS (register_live) — DLNA OP=00, no seek
 
+A token works only for the receiver it was published for (peer IP == target_ip) and while the playback
+session lives (unpublish / unregister_live, plus a sliding idle TTL); see MediaServer.__init__.
+
 Players rely on this layout: a URL with "/s/" is not byte-seekable, so seeking means reloading
 with `with_start(url, seconds)`.
 """
@@ -18,6 +21,7 @@ import asyncio
 import collections
 import contextlib
 import logging
+import math
 import os
 import re
 import secrets
@@ -38,6 +42,7 @@ log = logging.getLogger(__name__)
 
 CHUNK = 64 * 1024
 STDERR_TAIL_LINES = 200
+TOKEN_IDLE_TTL = 6 * 3600.0   # a paused film may sit idle for hours; explicit unpublish is the normal end
 
 # DLNA.ORG_FLAGS bits
 F_SENDER_PACED = 1 << 31
@@ -121,6 +126,12 @@ def get_lan_ip(peer: Optional[str] = None) -> str:
     return "127.0.0.1"
 
 
+def _norm_ip(ip: Optional[str]) -> Optional[str]:
+    if not ip:
+        return None
+    return ip[7:] if ip.lower().startswith("::ffff:") else ip
+
+
 _NPT = re.compile(r"npt\s*=\s*([0-9:.]+)?\s*-")
 
 
@@ -157,6 +168,8 @@ class Published:
     sub_cache: dict = field(default_factory=dict)
     created: float = field(default_factory=time.time)
     procs: set = field(default_factory=set)   # ffmpeg processes currently streaming this item
+    allowed_ip: Optional[str] = None    # only this peer may use the token (None = unrestricted)
+    last_seen: float = 0.0              # sliding idle TTL, see MediaServer.token_ttl
 
     @property
     def text_subtitles(self) -> list[probe.SubtitleTrack]:
@@ -167,11 +180,20 @@ LiveSource = Union[AsyncIterator[bytes], Callable[[], AsyncIterator[bytes]]]
 
 
 class _Live:
-    def __init__(self, name: str, source: LiveSource, mime: str):
+    def __init__(self, name: str, source: LiveSource, mime: str, allowed_ip: Optional[str] = None):
         self.name, self.source, self.mime = name, source, mime
+        self.allowed_ip = allowed_ip
         self.queues: set[asyncio.Queue] = set()
         self.task: Optional[asyncio.Task] = None
+        self.clients: set[asyncio.Task] = set()   # request handlers currently streaming this live
         self.ended = False
+
+    def close(self) -> None:
+        """Stop the shared pump and end every client stream (their handlers get cancelled)."""
+        if self.task:
+            self.task.cancel()
+        for t in list(self.clients):
+            t.cancel()
 
     def subscribe(self) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue(maxsize=512)
@@ -198,7 +220,16 @@ class _Live:
 
 
 class MediaServer:
-    def __init__(self, lan_ip: Optional[str] = None, ffmpeg: str = "ffmpeg"):
+    def __init__(self, lan_ip: Optional[str] = None, ffmpeg: str = "ffmpeg", *,
+                 bind_to_target: Optional[bool] = None, token_ttl: float = TOKEN_IDLE_TTL,
+                 clock: Callable[[], float] = time.monotonic):
+        """DLNA renderers can't authenticate, so a URL is valid only for the receiver it was published for
+        (`bind_to_target`: peer IP must equal `target_ip`; env AIRLINX_MEDIA_IP_BIND=0 disables it for a TV that
+        fetches from a different address than it advertises) and for the playback session (`token_ttl` = idle
+        seconds, sliding; unpublish/unregister_live invalidate at once)."""
+        if bind_to_target is None:
+            bind_to_target = os.environ.get("AIRLINX_MEDIA_IP_BIND", "1") != "0"
+        self.bind_to_target, self.token_ttl, self._clock = bind_to_target, token_ttl, clock
         # lan_ip given explicitly = fixed override (tests, manual config). Otherwise the IP is
         # resolved per publish from the route towards the renderer (VPN / network changes).
         self._lan_override = lan_ip
@@ -239,9 +270,8 @@ class MediaServer:
         for p in list(self._procs):
             with contextlib.suppress(ProcessLookupError):
                 p.kill()
-        for lv in self.lives.values():
-            if lv.task:
-                lv.task.cancel()
+        for lv in list(self.lives.values()):
+            lv.close()
         if self._runner:
             await self._runner.cleanup()
             self._runner = None
@@ -305,7 +335,8 @@ class MediaServer:
                                       "copy", "copy", ["-map", "0:v:0?", "-map", "0:a:0?", "-c", "copy"] + probe.MPEGTS,
                                       plan.subtitles, "https proxy")
         token = secrets.token_urlsafe(16)
-        pub = Published(token, item, target, plan, src, remote, host=self.lan_ip_for(target_ip))
+        pub = Published(token, item, target, plan, src, remote, host=self.lan_ip_for(target_ip),
+                        allowed_ip=_norm_ip(target_ip) if self.bind_to_target else None, last_seen=self._clock())
         ext = {"video/mp4": "mp4", "video/mpeg": "ts", "video/webm": "webm", "video/x-mkv": "mkv",
                "video/x-msvideo": "avi", "audio/mpeg": "mp3", "image/jpeg": "jpg", "image/png": "png"}.get(plan.mime, "bin")
         name = quote(f"media.{ext}")
@@ -369,15 +400,15 @@ class MediaServer:
         or a zero-arg callable returning a fresh async iterator per client."""
         self.unregister_live(name)
         token = secrets.token_urlsafe(16)
-        self.lives[token] = _Live(name, source, mime)
+        self.lives[token] = _Live(name, source, mime, _norm_ip(target_ip) if self.bind_to_target else None)
         self._live_names[name] = token
         return f"{self.base_url_for(target_ip)}/live/{token}/{quote(name)}.ts"
 
     def unregister_live(self, name: str) -> None:
         token = self._live_names.pop(name, None)
         lv = self.lives.pop(token, None) if token else None
-        if lv and lv.task:
-            lv.task.cancel()
+        if lv:
+            lv.close()
 
     # ------------------------------------------------------------ http helpers
     @web.middleware
@@ -393,10 +424,26 @@ class MediaServer:
         h["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Accept-Ranges"
         return resp
 
+    def _peer_allowed(self, request: web.Request, allowed_ip: Optional[str]) -> bool:
+        if allowed_ip is None:
+            return True
+        peer = _norm_ip(request.remote)
+        # a receiver on this machine (virtual TV) reaches our LAN address from that same address
+        return peer == allowed_ip or (allowed_ip.startswith("127.") and peer in ("127.0.0.1", self.lan_ip))
+
     def _get(self, request: web.Request) -> Published:
         pub = self.items.get(request.match_info["token"])
         if not pub:
             raise web.HTTPNotFound()
+        now = self._clock()
+        if now - pub.last_seen > self.token_ttl:
+            self.unpublish(pub.token)
+            raise web.HTTPNotFound()
+        if not self._peer_allowed(request, pub.allowed_ip):
+            # 404, same as an unknown token: don't confirm that the token exists
+            log.warning("media request from %s refused (published for another receiver)", request.remote)
+            raise web.HTTPNotFound()
+        pub.last_seen = now
         if request.method not in ("GET", "HEAD"):
             raise web.HTTPMethodNotAllowed(request.method, ["GET", "HEAD"])
         return pub
@@ -416,7 +463,10 @@ class MediaServer:
 
     async def _bytes_response(self, request: web.Request, body: bytes, headers: dict) -> web.Response:
         size = len(body)
-        rng = request.http_range
+        try:
+            rng = request.http_range
+        except ValueError:   # malformed Range ("bytes=abc", "bytes=5-2"): unsatisfiable, not a server error
+            return web.Response(status=416, headers={"Content-Range": f"bytes */{size}"})
         headers = dict(headers, **{"Accept-Ranges": "bytes"})
         if request.headers.get("Range"):
             start = rng.start or 0
@@ -432,6 +482,18 @@ class MediaServer:
             headers["Content-Length"] = str(size)
             return web.Response(status=200, headers=headers)
         return web.Response(body=body, headers=headers)
+
+    @staticmethod
+    def _query_seconds(request: web.Request) -> float:
+        """`?t=` start offset: a finite number >= 0, otherwise 400 (never an unhandled ValueError)."""
+        raw = request.query.get("t", "0") or "0"
+        try:
+            t = float(raw)
+        except ValueError:
+            raise web.HTTPBadRequest(text="bad t")
+        if not math.isfinite(t) or t < 0:
+            raise web.HTTPBadRequest(text="bad t")
+        return t
 
     # ------------------------------------------------------------ handlers
     async def _h_file(self, request: web.Request) -> web.StreamResponse:
@@ -462,7 +524,7 @@ class MediaServer:
         if not m or int(m.group(1)) >= len(subs):
             raise web.HTTPNotFound()
         n, fmt = int(m.group(1)), m.group(2)
-        t = float(request.query.get("t", "0") or 0)
+        t = self._query_seconds(request)
         key = (n, fmt, round(t, 1))
         if key not in pub.sub_cache:
             pub.sub_cache[key] = await self._ffmpeg_bytes(subtitle_args(pub.src, subs[n], fmt, t, pub.plan.start_time))
@@ -471,15 +533,19 @@ class MediaServer:
 
     async def _h_stream(self, request: web.Request) -> web.StreamResponse:
         pub = self._get(request)
-        start = float(request.query.get("t", "0") or 0)
+        start = self._query_seconds(request)
         headers = self._dlna_headers("stream", pub.plan.mime)
         headers.update(self._caption_header(pub))
         headers["Cache-Control"] = "no-cache"
         npt = parse_npt(request.headers.get("TimeSeekRange.dlna.org", ""))
         if npt is not None:
-            start = npt
+            # The TV counts time from the URL's ?t= offset (build_didl: duration = dur - t), so npt is
+            # relative to it: ffmpeg starts at t + npt, the advertised range is dur - t.
+            t0 = start
+            start = t0 + npt
             dur = pub.plan.duration
-            headers["TimeSeekRange.dlna.org"] = f"npt={fmt_npt(npt)}-" + (f"{fmt_npt(dur)}/{fmt_npt(dur)}" if dur else "*")
+            rest = max(dur - t0, 0.0) if dur else 0.0
+            headers["TimeSeekRange.dlna.org"] = f"npt={fmt_npt(npt)}-" + (f"{fmt_npt(rest)}/{fmt_npt(rest)}" if dur else "*")
         if request.headers.get("Range") and not request.headers.get("Range", "").startswith("bytes=0-"):
             # Can't byte-seek a live transcode.
             return web.Response(status=416, headers=headers)
@@ -493,7 +559,7 @@ class MediaServer:
 
     async def _h_live(self, request: web.Request) -> web.StreamResponse:
         lv = self.lives.get(request.match_info["token"])
-        if not lv:
+        if not lv or not self._peer_allowed(request, lv.allowed_ip):
             raise web.HTTPNotFound()
         headers = self._dlna_headers("live", lv.mime)
         headers["Cache-Control"] = "no-cache"
@@ -502,10 +568,20 @@ class MediaServer:
         await resp.prepare(request)
         if request.method == "HEAD":
             return resp
+        me = asyncio.current_task()
+        if me is not None:
+            lv.clients.add(me)
         try:
             if callable(lv.source):
-                async for chunk in lv.source():
-                    await resp.write(chunk)
+                it = lv.source()
+                try:
+                    async for chunk in it:
+                        await resp.write(chunk)
+                finally:   # a cancelled/disconnected client must not leave its ffmpeg generator running
+                    aclose = getattr(it, "aclose", None)
+                    if aclose is not None:
+                        with contextlib.suppress(Exception):
+                            await asyncio.shield(aclose())
             else:
                 q = lv.subscribe()
                 try:
@@ -518,6 +594,8 @@ class MediaServer:
                     lv.queues.discard(q)
         except (ConnectionResetError, asyncio.CancelledError):
             log.debug("live client left")
+        finally:
+            lv.clients.discard(me)  # type: ignore[arg-type]
         return resp
 
     # ------------------------------------------------------------ ffmpeg

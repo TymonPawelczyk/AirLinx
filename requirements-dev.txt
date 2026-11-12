@@ -6,9 +6,7 @@ pytest-cov>=5
 playwright>=1.45          # e2e: then run `playwright install chromium`
 pyyaml                    # CI workflow syntax check
 # runtime deps imported by the unit tests
-pychromecast
 zeroconf
 aiohttp
 async-upnp-client
 cryptography>=39  # tests use x509.load_pem_x509_certificates; Ubuntu 22.04 ships 3.4.8
-protobuf

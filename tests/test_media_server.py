@@ -375,3 +375,97 @@ async def test_unpublish_clears_caches_and_kills_streams(slow_ffmpeg, blob):
         assert s.info(pub.token) is None
     finally:
         await s.stop()
+
+
+# ----------------------------------------------------------------------------- live: client lifetime
+
+def _endless_factory(state):
+    async def gen():
+        state["started"] = state.get("started", 0) + 1
+        try:
+            while True:
+                await asyncio.sleep(0.01)
+                yield b"x" * 188
+        finally:
+            state["closed"] = state.get("closed", 0) + 1
+    return gen
+
+
+async def _wait_for(pred, timeout=3.0):
+    loop = asyncio.get_running_loop()
+    end = loop.time() + timeout
+    while loop.time() < end:
+        if pred():
+            return True
+        await asyncio.sleep(0.02)
+    return pred()
+
+
+@pytest.mark.asyncio
+async def test_unregister_live_ends_running_client_and_closes_its_iterator(server):
+    state: dict = {}
+    url = server.register_live("m", _endless_factory(state))
+    r = await server.sess.get(url)
+    await r.content.readexactly(188)
+    server.unregister_live("m")
+    # the client stream must end (EOF) instead of running until the TV disconnects
+    async def drain():
+        while await r.content.read(65536):
+            pass
+    await asyncio.wait_for(drain(), 3)
+    assert await _wait_for(lambda: state.get("closed") == 1), state
+    r.release()
+
+
+@pytest.mark.asyncio
+async def test_server_stop_closes_live_client_iterators():
+    s = ms.MediaServer(lan_ip="127.0.0.1")
+    await s.start(host="127.0.0.1", port=0)
+    state: dict = {}
+    url = s.register_live("m", _endless_factory(state))
+    async with aiohttp.ClientSession() as sess:
+        r = await sess.get(url)
+        await r.content.readexactly(188)
+        await s.stop()
+        assert state.get("closed") == 1, state
+        r.release()
+
+
+# ----------------------------------------------------------------------------- DLNA time seek vs ?t=
+
+def _capture_stream_args(server, monkeypatch):
+    seen = []
+
+    async def fake_pipe(request, resp, args, pub=None):
+        seen.append(args)
+        await resp.prepare(request)
+
+    monkeypatch.setattr(server, "_pipe_ffmpeg", fake_pipe)
+    return seen
+
+
+def _stream_url(server, blob, start=0.0):
+    item = MediaItem("1", str(blob), "Film", 100.0, "video")
+    p = probe.PlaybackPlan("dlna", "remux", "video/mpeg", "video", duration=100.0, ffmpeg_out=["-f", "mpegts"])
+    return server.publish_plan(item, p, start=start)[0]
+
+
+@pytest.mark.asyncio
+async def test_timeseekrange_is_relative_to_the_url_start_offset(server, blob, monkeypatch):
+    seen = _capture_stream_args(server, monkeypatch)
+    url = _stream_url(server, blob, start=60)
+    assert "t=60" in url
+    async with server.sess.get(url, headers={"TimeSeekRange.dlna.org": "npt=10-"}) as r:
+        assert r.status == 200
+        # TV counts from t (DIDL duration = 100 - 60 = 40 s): total is 40 s, not 100 s
+        assert r.headers["TimeSeekRange.dlna.org"] == "npt=0:00:10.000-0:00:40.000/0:00:40.000"
+    assert seen[0][:2] == ["-ss", "70.000"]
+
+
+@pytest.mark.asyncio
+async def test_timeseekrange_without_url_offset_is_unchanged(server, blob, monkeypatch):
+    seen = _capture_stream_args(server, monkeypatch)
+    url = _stream_url(server, blob)
+    async with server.sess.get(url, headers={"TimeSeekRange.dlna.org": "npt=10-"}) as r:
+        assert r.headers["TimeSeekRange.dlna.org"] == "npt=0:00:10.000-0:01:40.000/0:01:40.000"
+    assert seen[0][:2] == ["-ss", "10.000"]

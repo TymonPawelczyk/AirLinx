@@ -3,7 +3,7 @@
 Źródło prawdy dla agentów budujących aplikację. Zmiana kontraktu = najpierw zmiana tego pliku (przez team-leada).
 
 ## Fakty środowiska
-- Zorin OS 17.3 (Ubuntu 22.04), GNOME **X11**, Python systemowy 3.10 + PyGObject (Gtk 3, WebKit2 4.1, GLib/Gio). Venv: `.venv` (uv, `--system-site-packages`) — pychromecast, zeroconf, aiohttp, async-upnp-client, cryptography, protobuf.
+- Zorin OS 17.3 (Ubuntu 22.04), GNOME **X11**, Python systemowy 3.10 + PyGObject (Gtk 3, WebKit2 4.1, GLib/Gio). Venv: `.venv` (uv, `--system-site-packages`) — zeroconf, aiohttp, async-upnp-client, cryptography.
 - Monitory: `DP-4` 4096×2304+0+420 (główny), `DP-2.8` 5120×2880+4096+0. GPU RTX 3080: ffmpeg `h264_nvenc`/`hevc_nvenc`. GStreamer bez plugins-bad — **nie używać**.
 - Tray: GNOME z `zorin-appindicator` → **StatusNotifierItem + com.canonical.dbusmenu przez Gio D-Bus** (czysty Python, bez libappindicator).
 - TV: Samsung S85F (adres w `AIRLINX_TV_IP`) — Google Cast (mirroring app `0F5096E8` ✅ zweryfikowany, Default Media Receiver `CC1AD845`), DLNA DMR `http://<tv-ip>:9197/dmr`.
@@ -28,7 +28,7 @@ airlinx/
     cast/castv2.py       # TLS CASTv2 kanał (z spike)                 (cast)
     cast/rtp.py          # AES-CTR, pakietyzacja, RTCP (z spike)      (cast)
     cast/mirror.py       # MirrorSession                              (cast)
-    cast/media.py        # CastMediaPlayer (Default Media Receiver)   (media)
+    cast/media.py        # CastMediaPlayer (Default Media Receiver) na zweryfikowanym castv2.CastChannel   (media)
     dlna.py              # DlnaPlayer (AVTransport) + DlnaMirror fallback (MPEG-TS)  (media)
     media_server.py      # aiohttp: pliki z Range+CORS, transkodowanie NVENC, live TS (media)
     probe.py             # ffprobe → decyzja: direct / remux / transcode  (media)
@@ -109,6 +109,7 @@ class MediaServer:
     def publish(self, item: MediaItem, target: Literal["cast","dlna"]) -> tuple[str, str]  # (url, mime); decyzja z probe.py
     async def stop(self) -> None
 ```
+URL-e (`publish`/`register_live`) działają tylko dla odbiornika, dla którego opublikowano (IP peera == `target_ip`; wyłączane `AIRLINX_MEDIA_IP_BIND=0`) i do `unpublish`/`unregister_live` lub bezczynności dłuższej niż `TOKEN_IDLE_TTL` (6 h, przesuwany). Zły `Range` → 416, zły `?t=` → 400.
 Błędy: `core/models.py` definiuje `AirlinxError(code, message_pl)`, `TvBusyError`, `TvNotFoundError`, `PermissionPendingError`.
 
 ## Bridge JS ⇄ Python (`bridge.py`, kontrakt dla ui)
