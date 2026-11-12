@@ -18,6 +18,7 @@ import asyncio
 import collections
 import contextlib
 import logging
+import math
 import os
 import re
 import secrets
@@ -423,7 +424,10 @@ class MediaServer:
 
     async def _bytes_response(self, request: web.Request, body: bytes, headers: dict) -> web.Response:
         size = len(body)
-        rng = request.http_range
+        try:
+            rng = request.http_range
+        except ValueError:   # malformed Range ("bytes=abc", "bytes=5-2"): unsatisfiable, not a server error
+            return web.Response(status=416, headers={"Content-Range": f"bytes */{size}"})
         headers = dict(headers, **{"Accept-Ranges": "bytes"})
         if request.headers.get("Range"):
             start = rng.start or 0
@@ -439,6 +443,18 @@ class MediaServer:
             headers["Content-Length"] = str(size)
             return web.Response(status=200, headers=headers)
         return web.Response(body=body, headers=headers)
+
+    @staticmethod
+    def _query_seconds(request: web.Request) -> float:
+        """`?t=` start offset: a finite number >= 0, otherwise 400 (never an unhandled ValueError)."""
+        raw = request.query.get("t", "0") or "0"
+        try:
+            t = float(raw)
+        except ValueError:
+            raise web.HTTPBadRequest(text="bad t")
+        if not math.isfinite(t) or t < 0:
+            raise web.HTTPBadRequest(text="bad t")
+        return t
 
     # ------------------------------------------------------------ handlers
     async def _h_file(self, request: web.Request) -> web.StreamResponse:
@@ -469,7 +485,7 @@ class MediaServer:
         if not m or int(m.group(1)) >= len(subs):
             raise web.HTTPNotFound()
         n, fmt = int(m.group(1)), m.group(2)
-        t = float(request.query.get("t", "0") or 0)
+        t = self._query_seconds(request)
         key = (n, fmt, round(t, 1))
         if key not in pub.sub_cache:
             pub.sub_cache[key] = await self._ffmpeg_bytes(subtitle_args(pub.src, subs[n], fmt, t, pub.plan.start_time))
@@ -478,7 +494,7 @@ class MediaServer:
 
     async def _h_stream(self, request: web.Request) -> web.StreamResponse:
         pub = self._get(request)
-        start = float(request.query.get("t", "0") or 0)
+        start = self._query_seconds(request)
         headers = self._dlna_headers("stream", pub.plan.mime)
         headers.update(self._caption_header(pub))
         headers["Cache-Control"] = "no-cache"

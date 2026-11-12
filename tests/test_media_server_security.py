@@ -159,14 +159,12 @@ async def test_malformed_range_never_causes_a_server_error_on_files(server, blob
         assert r.status < 500, f"{hdr!r} -> {r.status}"
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: _bytes_response reads request.http_range, which raises ValueError "
-                                       "for a malformed Range header, so poster/image/subtitle routes answer 500")
 @pytest.mark.parametrize("hdr", ["bytes=abc", "bytes=5-2", "bytes=", "items=0-5", "garbage"])
 async def test_malformed_range_never_causes_a_server_error_on_cached_bytes(server, blob, hdr):
     item = MediaItem("1", str(blob), "Film", 10.0, "video", thumbnail_png=b"\x89PNG" + b"x" * 100)
     url = server.publish_plan(item, plan())[0]
     async with server.sess.get(server.poster_url(url), headers={"Range": hdr}) as r:
-        assert r.status < 500, f"{hdr!r} -> {r.status}"
+        assert r.status == 416, f"{hdr!r} -> {r.status}"
 
 
 async def test_stream_route_refuses_byte_seeking_but_not_the_first_byte(server, blob):
@@ -182,14 +180,26 @@ async def test_stream_route_refuses_byte_seeking_but_not_the_first_byte(server, 
 
 # ----------------------------------------------------------------------------- query parameters
 
-@pytest.mark.xfail(strict=True, reason="BUG: float(request.query['t']) is not guarded in _h_stream/_h_sub, so "
-                                       "?t=abc from any LAN client raises ValueError and answers 500")
 async def test_garbage_seek_parameter_is_a_client_error_on_stream(server, blob):
     item = MediaItem("1", str(blob), "Film", 10.0, "video")
     p = probe.PlaybackPlan("dlna", "remux", "video/mp2t", "video", duration=10.0, ffmpeg_out=["-f", "mpegts"])
     url, _ = server.publish_plan(item, p)
-    async with server.sess.head(url + "?t=abc") as r:
-        assert r.status < 500
+    for bad in ("abc", "nan", "inf", "-5"):
+        async with server.sess.head(url + "?t=" + bad) as r:
+            assert r.status == 400, f"t={bad} -> {r.status}"
+
+
+async def test_garbage_seek_parameter_is_a_client_error_on_subtitles(server, tmp_path):
+    srt = tmp_path / "s.srt"
+    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nhi\n")
+    item = MediaItem("1", str(tmp_path / "f.mp4"), "Film", 10.0, "video")
+    p = probe.PlaybackPlan("dlna", "direct", "video/mp4", "video", duration=10.0,
+                           subtitles=[probe.SubtitleTrack(index=-1, codec="subrip", external_path=str(srt))])
+    url = server.publish_plan(item, p)[0]
+    token = url.split("/")[4]
+    for bad in ("abc", "nan", "-1"):
+        async with server.sess.get(f"{base(server)}/sub/{token}/0.vtt?t={bad}") as r:
+            assert r.status == 400, f"t={bad} -> {r.status}"
 
 
 async def test_bad_subtitle_names_are_404(server, blob):
