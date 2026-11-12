@@ -37,6 +37,8 @@ SAMSUNG_DMR_PORTS = (9197,)
 MAX_DESCRIPTION_BYTES = 256 * 1024
 SSDP_FETCH_CONCURRENCY = 8       # parallel description downloads per scan
 SSDP_SCAN_DEADLINE = 8.0         # hard cap (s) for all description downloads of one scan
+SSDP_FETCH_TIMEOUT = 2.5         # per description attempt (s)
+SSDP_MAX_LOCATIONS_PER_HOST = 3  # distinct LOCATIONs tried per sender IP, in arrival order
 SSDP_MAX_HOSTS = 64              # replies are untrusted: look at no more than this many distinct senders
 SSDP_MAX_DATAGRAMS = 4096        # and keep no more than this many datagrams in memory
 
@@ -396,9 +398,11 @@ class Discovery:
         finally:
             transport.close()
 
-        # One reply per sender IP: the LOCATION must point back at the sender anyway, so extra replies from the
-        # same host (e.g. 1000 different ports) can only be noise or an attempt to stall the scan.
-        chosen: dict[str, dict] = {}
+        # Candidates per sender IP: a few distinct LOCATIONs (a hostile or broken first reply must not displace
+        # the real one), tried in order until one yields a description. Known devices are planned first so a flood
+        # of hosts cannot push them past the host limit.
+        cands: dict[str, list[dict]] = {}
+        responded: set[str] = set()
         for h in responses:
             st = h.get("st", "") or h.get("nt", "")
             if "MediaRenderer" not in st:
@@ -406,40 +410,48 @@ class Discovery:
             if not valid_location(h["location"], h["_addr"]):
                 log.debug("ignoring SSDP LOCATION %s from %s", redact_url(h["location"]), h["_addr"])
                 continue
-            if h["_addr"] not in chosen and len(chosen) < SSDP_MAX_HOSTS:
-                chosen[h["_addr"]] = h
-        seen_ips = await self._fetch_all(chosen)
+            responded.add(h["_addr"])
+            lst = cands.setdefault(h["_addr"], [])
+            if len(lst) < SSDP_MAX_LOCATIONS_PER_HOST and all(x["location"] != h["location"] for x in lst):
+                lst.append(h)
+        order = sorted(cands, key=lambda ip: ip not in self._entries)          # stable: known first
+        chosen = {ip: cands[ip] for ip in order[:SSDP_MAX_HOSTS]}
+        await self._fetch_all(chosen)
         if target is None:
             for ip, e in self._entries.items():
-                if "dlna" in e.device.caps and ip not in seen_ips:
+                # a miss means the host sent no SSDP reply at all; a reply whose description was slow, abandoned
+                # at the deadline or beyond the host limit says nothing about the device being gone
+                if "dlna" in e.device.caps and ip not in responded:
                     e.dlna_misses += 1
                     if e.dlna_misses >= SSDP_MISSES_OFFLINE:
                         e.dlna_alive = False
                         self._update_online(e)
-        return list(chosen.values())
+        return [h for lst in chosen.values() for h in lst]
 
-    async def _fetch_all(self, chosen: dict[str, dict]) -> set[str]:
-        """Download the descriptions in parallel (bounded), under one overall deadline; upsert the ones that
-        arrive. Returns the IPs that answered."""
+    async def _fetch_all(self, chosen: dict[str, list[dict]]) -> None:
+        """Download descriptions in parallel (bounded), under one overall deadline, and upsert those that
+        arrive. Per host the candidate LOCATIONs are tried in order until one parses."""
         sem = asyncio.Semaphore(SSDP_FETCH_CONCURRENCY)
-        seen: set[str] = set()
 
-        async def one(ip: str, h: dict) -> None:
-            async with sem:
-                desc = await self._fetch_description(h["location"])
-            if desc is not None:
-                seen.add(ip)
-                self.upsert_dlna(ip, h["location"], desc)
+        async def one(ip: str, hs: list[dict]) -> None:
+            for h in hs:
+                async with sem:
+                    try:
+                        desc = await asyncio.wait_for(self._fetch_description(h["location"]), SSDP_FETCH_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        desc = None
+                if desc is not None:
+                    self.upsert_dlna(ip, h["location"], desc)
+                    return
 
-        tasks = [asyncio.ensure_future(one(ip, h)) for ip, h in chosen.items()]
+        tasks = [asyncio.ensure_future(one(ip, hs)) for ip, hs in chosen.items()]
         if tasks:
             _, pending = await asyncio.wait(tasks, timeout=SSDP_SCAN_DEADLINE)
             for t in pending:
                 t.cancel()
             if pending:
-                log.debug("SSDP scan deadline: %d description(s) abandoned", len(pending))
+                log.debug("SSDP scan deadline: %d host(s) abandoned", len(pending))
                 await asyncio.gather(*pending, return_exceptions=True)
-        return seen
 
     async def _fetch_description(self, location: str) -> Optional[dict]:
         try:

@@ -473,3 +473,118 @@ def test_same_service_may_update_its_own_entry_and_a_dead_one_may_be_replaced():
     d._cast_removed(name)                                                              # service gone
     d.upsert_cast(ip, 8009, {"id": "bb", "name": "B", "model": "m"}, zc_name="New._googlecast._tcp.local.")
     assert d.devices[0].id == "bb" and d.devices[0].cast_port == 8009 and d.devices[0].online
+
+
+# ------------------------------------------------------------------ hardening 2: hostile replies cannot evict real devices
+
+def _resp(ip, port):
+    return (SSDP_RESPONSE.replace(b"192.168.1.10:9197", f"{ip}:{port}".encode()), (ip, 1900))
+
+
+@pytest.mark.asyncio
+async def test_flood_of_hosts_does_not_mark_a_known_tv_offline(monkeypatch):
+    flood = [_resp(f"10.{i // 250}.{i % 250}.7", 9197) for i in range(1000)]
+    tv = _resp("192.168.1.10", 9197)
+    _fake_ssdp_endpoint(monkeypatch, flood + [tv])          # the real TV answers last
+    monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 1.0)
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+    d.upsert_dlna("192.168.1.10", "http://192.168.1.10:9197/dmr", {"friendly_name": "Old name", "udn": "uuid:1-2"})
+    d._entries["192.168.1.10"].dlna_misses = disc.SSDP_MISSES_OFFLINE - 1
+
+    async def fetch(loc):
+        if "192.168.1.10" in loc:
+            return {**disc.parse_description(DESCRIPTION), "friendly_name": "New name"}
+        await asyncio.sleep(3600)
+
+    d._fetch_description = fetch
+    await d._ssdp_scan(timeout=0.7)
+    dev = d.devices[0] if d.devices[0].ip == "192.168.1.10" else next(x for x in d.devices if x.ip == "192.168.1.10")
+    assert dev.online and dev.name == "New name"
+    assert d._entries["192.168.1.10"].dlna_misses == 0
+
+
+@pytest.mark.asyncio
+async def test_abandoned_fetch_of_a_responding_known_host_is_not_a_miss(monkeypatch):
+    _fake_ssdp_endpoint(monkeypatch, [_resp("192.168.1.10", 9197)])
+    monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 0.5)
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+    d.upsert_dlna("192.168.1.10", "http://192.168.1.10:9197/dmr", {"friendly_name": "TV", "udn": "uuid:1-2"})
+    e = d._entries["192.168.1.10"]
+    e.dlna_misses = disc.SSDP_MISSES_OFFLINE - 1
+
+    async def hang(loc):
+        await asyncio.sleep(3600)
+
+    d._fetch_description = hang
+    await d._ssdp_scan(timeout=0.7)
+    assert e.dlna_misses == disc.SSDP_MISSES_OFFLINE - 1 and e.device.online
+    # a host that really stayed silent still counts
+    _fake_ssdp_endpoint(monkeypatch, [])
+    await d._ssdp_scan(timeout=0.7)
+    assert e.dlna_misses == disc.SSDP_MISSES_OFFLINE and not e.device.online
+
+
+@pytest.mark.asyncio
+async def test_fast_bogus_location_does_not_displace_the_real_description(monkeypatch):
+    bogus = _resp("192.168.1.10", 1)                          # same sender IP, wrong port, answers first
+    real = _resp("192.168.1.10", 9197)
+    _fake_ssdp_endpoint(monkeypatch, [bogus, real])
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+    tried = []
+
+    async def fetch(loc):
+        tried.append(loc)
+        return None if loc.endswith(":1/dmr") else disc.parse_description(DESCRIPTION)
+
+    d._fetch_description = fetch
+    await d._ssdp_scan(timeout=0.7)
+    assert tried == ["http://192.168.1.10:1/dmr", "http://192.168.1.10:9197/dmr"]
+    assert d.devices[0].dlna_location == "http://192.168.1.10:9197/dmr"
+
+
+@pytest.mark.asyncio
+async def test_hanging_location_times_out_and_next_one_is_tried(monkeypatch):
+    _fake_ssdp_endpoint(monkeypatch, [_resp("192.168.1.10", 1), _resp("192.168.1.10", 9197)])
+    monkeypatch.setattr(disc, "SSDP_FETCH_TIMEOUT", 0.3)
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+
+    async def fetch(loc):
+        if loc.endswith(":1/dmr"):
+            await asyncio.sleep(3600)
+        return disc.parse_description(DESCRIPTION)
+
+    d._fetch_description = fetch
+    await d._ssdp_scan(timeout=0.7)
+    assert d.devices[0].dlna_location.endswith(":9197/dmr")
+
+
+@pytest.mark.asyncio
+async def test_locations_per_host_are_capped(monkeypatch):
+    _fake_ssdp_endpoint(monkeypatch, [_resp("192.168.1.10", 20000 + i) for i in range(50)])
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+    tried = []
+
+    async def fetch(loc):
+        tried.append(loc)
+        return None
+
+    d._fetch_description = fetch
+    await d._ssdp_scan(timeout=0.7)
+    assert len(tried) == disc.SSDP_MAX_LOCATIONS_PER_HOST
+
+
+@pytest.mark.asyncio
+async def test_known_hosts_are_kept_when_the_host_limit_is_hit(monkeypatch):
+    flood = [_resp(f"10.0.{i // 250}.{i % 250 + 1}", 9197) for i in range(disc.SSDP_MAX_HOSTS + 20)]
+    _fake_ssdp_endpoint(monkeypatch, flood + [_resp("192.168.1.10", 9197)])
+    d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
+    d.upsert_dlna("192.168.1.10", "http://192.168.1.10:9197/dmr", {"friendly_name": "TV", "udn": "uuid:1-2"})
+    tried = []
+
+    async def fetch(loc):
+        tried.append(loc)
+        return disc.parse_description(DESCRIPTION)
+
+    d._fetch_description = fetch
+    await d._ssdp_scan(timeout=0.7)
+    assert "http://192.168.1.10:9197/dmr" in tried and len(tried) == disc.SSDP_MAX_HOSTS
