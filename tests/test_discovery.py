@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+
 import pytest
 
 from airlinx.core import discovery as disc
@@ -255,3 +258,63 @@ async def test_add_manual_rejects_bad_ips():
     d = disc.Discovery(lambda devs: None)
     for ip in ("127.0.0.1", "169.254.1.1", "not-an-ip", "224.0.0.1", "0.0.0.0", "::1"):
         assert await d.add_manual(ip) is None
+
+
+# ------------------------------------------------------------------ hardening: interface IP follows the network
+
+async def _start_without_loop(d):
+    """start() but with the background scan loop stopped, so the test drives rescan() itself."""
+    await d.start()
+    d._task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await d._task
+
+
+@pytest.mark.asyncio
+async def test_rescan_follows_lan_ip_change_and_restarts_mdns(monkeypatch):
+    """Autostart before NetworkManager: get_lan_ip() is 127.0.0.1 first, the DHCP lease arrives later."""
+    ips = iter(["127.0.0.1", "192.168.1.16", "192.168.1.16", "10.0.0.5"])
+    monkeypatch.setattr(disc, "get_lan_ip", lambda: next(ips))
+    d = disc.Discovery(lambda devs: None, rescan_interval=3600)
+    events, bound = [], []
+
+    async def fake_start_mdns():
+        events.append(("start", d.interface_ip))
+
+    async def fake_stop_mdns():
+        events.append(("stop", d.interface_ip))
+
+    async def fake_ssdp(target=None, timeout=3.0):
+        bound.append(d.interface_ip)
+        return []
+
+    monkeypatch.setattr(d, "_start_mdns", fake_start_mdns)
+    monkeypatch.setattr(d, "_stop_mdns", fake_stop_mdns)
+    monkeypatch.setattr(d, "_ssdp_scan", fake_ssdp)
+    await _start_without_loop(d)
+    assert d.interface_ip == "127.0.0.1"
+    await d.rescan()                       # network came up
+    assert d.interface_ip == "192.168.1.16"
+    await d.rescan()                       # unchanged: no restart
+    await d.rescan()                       # moved to another network
+    assert d.interface_ip == "10.0.0.5"
+    assert bound == ["192.168.1.16", "192.168.1.16", "10.0.0.5"]   # SSDP binds to the fresh address
+    assert [e for e in events if e[0] == "start"] == [("start", "127.0.0.1"), ("start", "192.168.1.16"),
+                                                       ("start", "10.0.0.5")]
+    assert len([e for e in events if e[0] == "stop"]) == 2          # one restart per change, none for "unchanged"
+    await d.stop()
+
+
+@pytest.mark.asyncio
+async def test_explicit_interface_ip_is_never_replaced(monkeypatch):
+    monkeypatch.setattr(disc, "get_lan_ip", lambda: "10.9.9.9")
+    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16", enable_mdns=False)
+
+    async def fake_ssdp(target=None, timeout=3.0):
+        return []
+
+    monkeypatch.setattr(d, "_ssdp_scan", fake_ssdp)
+    await _start_without_loop(d)
+    await d.rescan()
+    assert d.interface_ip == "192.168.1.16"
+    await d.stop()
