@@ -271,7 +271,7 @@ async def test_url_works_for_the_target_receiver_with_many_requests(server, blob
 
 
 async def test_url_is_refused_from_any_other_ip_on_every_route(server, blob):
-    url = publish_for(server, blob, "192.168.1.10")   # published for the TV; we are 127.0.0.1
+    url = publish_for(server, blob, "192.0.2.10")   # published for the TV; we are 127.0.0.1
     token = url.split("/")[4]
     urls = [url, server.poster_url(url), f"{base(server)}/sub/{token}/0.srt",
             f"{base(server)}/s/{token}/media.ts", f"{base(server)}/i/{token}/media.jpg"]
@@ -293,7 +293,7 @@ async def test_binding_can_be_disabled(blob):
     await s.start(host="127.0.0.1", port=0)
     try:
         async with aiohttp.ClientSession() as sess:
-            url = publish_for(s, blob, "192.168.1.10")
+            url = publish_for(s, blob, "192.0.2.10")
             async with sess.get(url) as r:
                 assert r.status == 200
     finally:
@@ -305,7 +305,7 @@ async def test_live_url_is_bound_to_the_receiver(server):
         yield b"x" * 188
 
     good = server.register_live("a", gen, target_ip="127.0.0.1")
-    bad = server.register_live("b", gen, target_ip="192.168.1.10")
+    bad = server.register_live("b", gen, target_ip="192.0.2.10")
     async with server.sess.get(good) as r:
         assert r.status == 200
     async with server.sess.get(bad) as r:
