@@ -141,3 +141,90 @@ def test_get_walks_dotted_keys_through_non_dicts_safely(tmp_path):
     s = Settings(tmp_path / "c.json")
     assert s.get("protocol.deeper", "dflt") == "dflt"
     assert s.get("", "dflt") == "dflt"
+
+
+# --- value validation (range / enum / kind) -----------------------------------------------------
+
+import math  # noqa: E402
+
+BAD_VALUES = [
+    ("media.volume", -0.1), ("media.volume", 1.5), ("media.volume", math.nan), ("media.volume", math.inf),
+    ("media.volume", -math.inf), ("media.volume", "loud"), ("media.volume", True), ("media.volume", None),
+    ("mirror.fps", 0), ("mirror.fps", -5), ("mirror.fps", 100000), ("mirror.fps", 29.5), ("mirror.fps", math.nan),
+    ("mirror.fps", math.inf), ("mirror.fps", True), ("mirror.fps", "60"),
+    ("mirror.bitrate", 0), ("mirror.bitrate", -1), ("mirror.bitrate", 10**12), ("mirror.bitrate", math.inf),
+    ("mirror.max_height", 0), ("mirror.max_height", 99999), ("mirror.max_height", "1080"),
+    ("mirror.target_delay_ms", -1), ("mirror.target_delay_ms", 10**9), ("mirror.target_delay_ms", math.nan),
+    ("mirror.preset", "ultra"), ("mirror.preset", 3), ("mirror.preset", None),
+    ("mirror.audio", "yes"), ("mirror.audio", 1), ("mirror.audio", None),
+    ("media.auto_advance", 0), ("media.auto_advance", "true"),
+    ("close_to_tray", 1), ("close_to_tray", "no"), ("start_hidden", None), ("autostart", "x"),
+    ("notifications", []),
+    ("audio.source", "bluetooth"), ("audio.source", 5), ("audio.source", None),
+    ("audio.mic", 5), ("audio.mic", ""), ("audio.app", 7), ("audio.app_name", ["x"]), ("audio.mic_name", 3),
+    ("last_device_id", 5), ("last_device_id", ["a"]), ("last_source_id", {"a": 1}),
+    ("protocol", 3), ("protocol", None),
+]
+
+
+def _default(key):
+    cur = DEFAULTS
+    for part in key.split("."):
+        cur = cur[part]
+    return cur
+
+
+@pytest.mark.parametrize("key,bad", BAD_VALUES, ids=[f"{k}={v!r}" for k, v in BAD_VALUES])
+def test_invalid_value_in_a_loaded_file_resets_to_the_default(tmp_path, caplog, key, bad):
+    patch: dict = {}
+    node = patch
+    parts = key.split(".")
+    for p in parts[:-1]:
+        node = node.setdefault(p, {})
+    node[parts[-1]] = bad
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"version": SCHEMA_VERSION, **patch}))   # json.dumps emits NaN/Infinity literals
+    with caplog.at_level("WARNING"):
+        s = Settings(p)
+    assert s.get(key) == _default(key)
+    assert key in caplog.text, "a reset must be logged"
+
+
+@pytest.mark.parametrize("key,bad", BAD_VALUES, ids=[f"{k}={v!r}" for k, v in BAD_VALUES])
+def test_invalid_value_through_update_resets_only_that_key(tmp_path, key, bad):
+    s = Settings(tmp_path / "c.json")
+    s.set("mirror.fps", 30) if key != "mirror.fps" else None
+    s.set(key, bad)
+    assert s.get(key) == _default(key)
+    if key != "mirror.fps":
+        assert s.get("mirror.fps") == 30
+    assert json.loads((tmp_path / "c.json").read_text())      # file stays strictly valid for the next load
+
+
+@pytest.mark.parametrize("key,good", [
+    ("media.volume", 0), ("media.volume", 0.0), ("media.volume", 1), ("media.volume", 0.37),
+    ("mirror.fps", 30), ("mirror.fps", 24), ("mirror.bitrate", 28_000_000), ("mirror.max_height", 2160),
+    ("mirror.max_height", 1440), ("mirror.preset", "cinema"), ("mirror.target_delay_ms", 0),
+    ("mirror.audio", False), ("audio.source", "app"), ("audio.source", "system_mic"), ("audio.source", "mic"),
+    ("last_device_id", "uuid:abc"), ("last_device_id", None), ("close_to_tray", False), ("protocol", "cast"),
+])
+def test_valid_values_are_kept(tmp_path, key, good):
+    s = Settings(tmp_path / "c.json")
+    s.set(key, good)
+    assert Settings(tmp_path / "c.json").get(key) == good
+
+
+def test_every_shipped_ui_profile_is_accepted(tmp_path):
+    s = Settings(tmp_path / "c.json")
+    for o in ({"preset": "game", "max_height": 1080, "fps": 60, "bitrate": 12_000_000},
+              {"preset": "game", "max_height": 1440, "fps": 60, "bitrate": 18_000_000},
+              {"preset": "cinema", "max_height": 2160, "fps": 30, "bitrate": 28_000_000}):
+        s.update({"mirror": o})
+        assert {k: s.get(f"mirror.{k}") for k in o} == o
+
+
+def test_integral_float_from_json_is_normalised_to_int(tmp_path):
+    p = tmp_path / "c.json"
+    p.write_text('{"mirror": {"fps": 30.0}}')
+    v = Settings(p).get("mirror.fps")
+    assert v == 30 and isinstance(v, int)

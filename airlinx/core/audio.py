@@ -621,8 +621,11 @@ async def cleanup_orphans(runner: Runner = pactl, state_path: Optional[Path] = N
     if not ours and not mods:
         _drop_state(path)
         return 0
-    origins = {int(k): v for k, v in (state.get("origins") or {}).items() if str(k).isdigit()}
-    pinned = {int(k): True for k in state.get("pinned") or [] if str(k).isdigit()}
+    raw_origins, raw_pinned = state.get("origins"), state.get("pinned")      # the file may hold anything
+    origins = {int(k): v for k, v in (raw_origins.items() if isinstance(raw_origins, dict) else ())
+               if str(k).isdigit() and isinstance(v, str)}
+    pinned = {int(k): True for k in (raw_pinned if isinstance(raw_pinned, list) else ())
+              if isinstance(k, (int, str)) and str(k).isdigit()}
     log.warning("cleaning up audio routing left by a previous run (%d sink(s))", len(ours))
     await _restore_streams(runner, ours, origins, pinned)
     n = await _unload_ours(runner, None)

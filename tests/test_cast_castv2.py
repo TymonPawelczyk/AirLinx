@@ -490,3 +490,86 @@ def test_castv2_docstring_describes_device_authentication():
     doc = " ".join((castv2.__doc__ or "").split())
     assert "performs Cast device authentication" in doc
     assert "is not performed" not in doc
+
+
+# --- known_tvs.json hardening -------------------------------------------------------------------
+
+def test_corrupt_known_tvs_is_moved_to_bak_not_overwritten(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text('{"tv": {"auth": "tofu", ', "utf-8")
+    assert cv.forget_tv_cert("x") is False          # reads via _load_pins
+    bak = isolated_pins.with_name("known_tvs.json.bak")
+    assert bak.read_text("utf-8") == '{"tv": {"auth": "tofu", '
+    assert not isolated_pins.exists()
+
+
+def test_corrupt_known_tvs_backup_survives_the_following_pin_write(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text("not json", "utf-8")
+    assert cv.check_cert_pin("tv", "ab" * 32) is True
+    assert isolated_pins.with_name("known_tvs.json.bak").read_text("utf-8") == "not json"
+    assert "tv" in json.loads(isolated_pins.read_text("utf-8"))
+
+
+def test_non_object_root_is_also_backed_up(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text("[1, 2]", "utf-8")
+    cv._load_pins(isolated_pins)
+    assert isolated_pins.with_name("known_tvs.json.bak").read_text("utf-8") == "[1, 2]"
+
+
+def test_unreadable_but_existing_file_is_left_in_place(isolated_pins):
+    isolated_pins.mkdir(parents=True)               # a directory: read fails with OSError, nothing to back up
+    assert cv._load_pins(isolated_pins) == {}
+    assert isolated_pins.is_dir()
+
+
+@pytest.mark.parametrize("bad", ["string", 5, None, [1], True])
+def test_non_dict_entry_counts_as_no_entry(isolated_pins, bad):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text(json.dumps({"tv": bad, "other": {"auth": "tofu", "tls": {"sha256": "aa"}}}), "utf-8")
+    assert cv.check_cert_pin("tv", "cd" * 32) is True       # no AttributeError, pinned anew
+    pins = json.loads(isolated_pins.read_text("utf-8"))
+    assert pins["tv"]["tls"]["sha256"] == "cd" * 32
+    assert pins["other"]["tls"]["sha256"] == "aa"           # valid neighbours are preserved
+
+
+def test_check_receiver_identity_with_non_dict_entry(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text(json.dumps({"tv": "garbage"}), "utf-8")
+    key = ec.generate_private_key(ec.SECP256R1())
+    assert cv.check_receiver_identity("tv", der(make_cert("tv", key)), None) == "pinned"
+
+
+def test_load_pins_strict_still_raises_and_keeps_the_file(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text("{broken", "utf-8")
+    with pytest.raises(ValueError):
+        cv.load_pins_strict(isolated_pins)
+    assert isolated_pins.read_text("utf-8") == "{broken"
+
+
+def test_guarded_loader_merges_the_bak_and_fails_closed_on_an_unreadable_one(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    bak = isolated_pins.with_name("known_tvs.json.bak")
+    bak.write_text(json.dumps({"a": {"auth": "tofu"}, "b": {"auth": "tofu"}}))
+    isolated_pins.write_text(json.dumps({"b": {"auth": "device"}}))
+    pins = cv.load_pins_guarded(isolated_pins)
+    assert set(pins) == {"a", "b"} and pins["b"]["auth"] == "device"
+    bak.write_text("{broken")
+    with pytest.raises(ValueError):
+        cv.load_pins_guarded(isolated_pins)
+
+
+def test_forget_does_not_discard_a_bak_it_just_created(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text("{broken")
+    cv.forget_tv_cert("tv")
+    assert isolated_pins.with_name("known_tvs.json.bak").read_text("utf-8") == "{broken"
+
+
+def test_forget_discards_an_older_unreadable_bak(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    bak = isolated_pins.with_name("known_tvs.json.bak")
+    bak.write_text("{broken")
+    assert cv.forget_tv_cert("tv") is True and not bak.exists()
