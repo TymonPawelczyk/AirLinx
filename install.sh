@@ -56,7 +56,7 @@ find "$PREFIX/app" -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # --- python: własny venv w $PREFIX (niezależny od katalogu repo) ---------------------
 # cryptography>=39: systemowe 3.4.8 (Ubuntu 22.04) spełniałoby wymaganie bez wersji, a kod używa x509.load_pem_x509_certificates
-DEPS=(pychromecast zeroconf aiohttp async-upnp-client 'cryptography>=39' protobuf)
+DEPS=(zeroconf aiohttp async-upnp-client 'cryptography>=39')
 if [[ -n "${AIRLINX_PYTHON:-}" ]]; then
   PY="$AIRLINX_PYTHON"                       # świadome nadpisanie (np. do testów)
 else

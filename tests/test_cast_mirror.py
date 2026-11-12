@@ -563,6 +563,48 @@ def test_stop_during_renegotiation_leaves_no_capture(patched):
     asyncio.run(asyncio.wait_for(main(), 15))
 
 
+def test_supervisor_waits_for_inflight_update_before_touching_media(patched, monkeypatch):
+    """A supervisor event (reconnect) must not tear media down/up while update()/switch_source() holds the op lock."""
+    monkeypatch.setattr(mm, "RECONNECT_BACKOFF", (0.05,))
+
+    async def main():
+        tv = FakeTv()
+        port = await tv.start()
+        s = make_session(port, [], [])
+        await s.start()
+        await wait_until(lambda: s.state == "live")
+        first = FakeVideo.instances[-1]
+        async with s._op_lock:                       # an update() is in flight
+            s._events.put_nowait(("stall", "test"))
+            await asyncio.sleep(0.4)
+            assert not first.stopped, "supervisor stopped media while an update held the op lock"
+        await wait_until(lambda: first.stopped)
+        await wait_until(lambda: s.state == "live" and len(FakeVideo.instances) >= 2)
+        await s.stop()
+        assert all(v.stopped for v in FakeVideo.instances)
+        await tv.close()
+    asyncio.run(asyncio.wait_for(main(), 20))
+
+
+def test_stop_during_supervisor_reconnect_leaves_no_capture(patched, monkeypatch):
+    monkeypatch.setattr(mm, "RECONNECT_BACKOFF", (0.3,))
+
+    async def main():
+        tv = FakeTv()
+        port = await tv.start()
+        s = make_session(port, [], [])
+        await s.start()
+        await wait_until(lambda: s.state == "live")
+        s._events.put_nowait(("stall", "test"))
+        await wait_until(lambda: s.state == "reconnecting")
+        await s.stop()
+        await asyncio.sleep(0.5)
+        assert s._media is None and all(v.stopped for v in FakeVideo.instances)
+        assert all(a.stopped for a in FakeAudio.instances)
+        await tv.close()
+    asyncio.run(asyncio.wait_for(main(), 20))
+
+
 def _app_opts(**kw):
     return models.MirrorOptions(audio_source="app", audio_app="firefox", audio_app_name="Firefox", **kw)
 
