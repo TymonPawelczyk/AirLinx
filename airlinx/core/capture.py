@@ -313,6 +313,7 @@ _caps: dict[str, bool] = {}
 async def _ffmpeg_ok(args: list[str], timeout: float = 8.0) -> bool:
     if not shutil.which("ffmpeg"):
         return False
+    p = None
     try:
         p = await asyncio.create_subprocess_exec(
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", *args,
@@ -320,18 +321,32 @@ async def _ffmpeg_ok(args: list[str], timeout: float = 8.0) -> bool:
         return await asyncio.wait_for(p.wait(), timeout) == 0
     except (OSError, asyncio.TimeoutError):
         return False
+    finally:
+        # timeout, cancellation or any other exit path: never leave the probe's ffmpeg running
+        if p is not None and p.returncode is None:
+            try:
+                p.kill()
+            except ProcessLookupError:
+                pass
+            try:
+                await asyncio.shield(p.wait())
+            except BaseException:
+                pass
 
 
 async def probe_encoders() -> dict[str, bool]:
-    """Detect NVENC (H.264 and HEVC), CUDA scaling, libx264 and libx265 once (cached)."""
+    """Detect NVENC (H.264 and HEVC), CUDA scaling, libx264 and libx265 once (cached). The cache is published only
+    after every probe finished, so a cancelled probe (e.g. TvBusyError during start) cannot leave a partial result."""
     if not _caps:
         src = ["-f", "lavfi", "-i", "testsrc2=s=256x144:r=30", "-frames:v", "3"]
-        _caps["nvenc"] = await _ffmpeg_ok(src + ["-c:v", "h264_nvenc", "-f", "null", "-"])
-        _caps["cuda_scale"] = _caps["nvenc"] and await _ffmpeg_ok(
+        found: dict[str, bool] = {}
+        found["nvenc"] = await _ffmpeg_ok(src + ["-c:v", "h264_nvenc", "-f", "null", "-"])
+        found["cuda_scale"] = found["nvenc"] and await _ffmpeg_ok(
             src + ["-vf", "format=bgr0,hwupload_cuda,scale_cuda=192:108", "-c:v", "h264_nvenc", "-f", "null", "-"])
-        _caps["x264"] = await _ffmpeg_ok(src + ["-c:v", "libx264", "-f", "null", "-"])
-        _caps["hevc_nvenc"] = _caps["nvenc"] and await _ffmpeg_ok(src + ["-c:v", "hevc_nvenc", "-f", "null", "-"])
-        _caps["x265"] = await _ffmpeg_ok(src + ["-c:v", "libx265", "-f", "null", "-"])
+        found["x264"] = await _ffmpeg_ok(src + ["-c:v", "libx264", "-f", "null", "-"])
+        found["hevc_nvenc"] = found["nvenc"] and await _ffmpeg_ok(src + ["-c:v", "hevc_nvenc", "-f", "null", "-"])
+        found["x265"] = await _ffmpeg_ok(src + ["-c:v", "libx265", "-f", "null", "-"])
+        _caps.update(found)
         log.info("encoder capabilities: %s", _caps)
     return dict(_caps)
 
@@ -504,6 +519,9 @@ class _FfmpegProc:
             self._err_task.cancel()
             with contextlib.suppress(BaseException):
                 await self._err_task
+        tr = getattr(p, "_transport", None)
+        if tr is not None:
+            tr.close()      # release the pipes now, not from __del__ after the loop is gone
 
 
 class _FailureBudget:
@@ -531,7 +549,7 @@ class EncodedFrame:
 
 
 class VideoCapture:
-    """Restartable x11grab → encoder pipeline."""
+    """x11grab → encoder pipeline: restartable encoder, but single-use object (start() once, stop() is final)."""
 
     def __init__(self, params: VideoParams, on_frame: Callable[[EncodedFrame], None],
                  on_fatal: Callable[[str], None], *, disp: Optional[str] = None):
@@ -577,8 +595,7 @@ class VideoCapture:
         return v[len(v) // 2]
 
     async def start(self) -> None:
-        self._stopping = False
-        self._stop_evt.clear()
+        # single-use: no flag reset here, so a stop() that won the race against start() stays final
         proc = await self._spawn()
         if proc is None:
             return
@@ -712,6 +729,7 @@ class VideoCapture:
         log.warning("video encoder exited unexpectedly (rc=%s): %s", rc, detail)
         self._tasks.pop(proc, None)
         self._active = None
+        await proc.stop()           # reap the dead encoder and close its transport before replacing it
         if self._fails.hit():
             self.on_fatal(f"ffmpeg (wideo) kończy się błędem: {detail or rc}")
             return
@@ -758,7 +776,7 @@ class AudioCapture:
         self.reanchors = 0
 
     async def start(self) -> None:
-        self._stopping = False
+        # single-use: no flag reset here, so a stop() that won the race against start() stays final
         await self._launch()
 
     async def _launch(self) -> None:
