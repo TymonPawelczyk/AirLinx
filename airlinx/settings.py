@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import math
 import os
 import tempfile
 import threading
@@ -47,6 +48,7 @@ DEFAULTS: dict[str, Any] = {
 ALLOWED_PROTOCOLS = ("auto", "cast", "dlna")
 AUDIO_SOURCES = ("system", "mic", "system_mic", "app")
 CODECS = ("auto", "h264", "hevc")
+MIRROR_PRESETS = ("game", "cinema")
 
 
 def config_dir() -> Path:
@@ -83,6 +85,83 @@ def _reset_wrong_types(data: dict, defaults: dict, prefix: str = "") -> None:
             continue
         log.warning("config: %s%s has the wrong type (%r); using the default", prefix, k, v)
         data[k] = copy.deepcopy(dv)
+
+
+_MISSING = object()
+
+
+def _int_in(lo: int, hi: int):
+    def check(v: Any) -> Any:
+        if _is_number(v) and math.isfinite(v) and v == int(v) and lo <= v <= hi:
+            return int(v)
+        return _MISSING
+    return check
+
+
+def _float_in(lo: float, hi: float):
+    def check(v: Any) -> Any:
+        return float(v) if _is_number(v) and math.isfinite(v) and lo <= v <= hi else _MISSING
+    return check
+
+
+def _one_of(*allowed: str):
+    return lambda v: v if isinstance(v, str) and v in allowed else _MISSING
+
+
+def _bool(v: Any) -> Any:
+    return v if isinstance(v, bool) else _MISSING
+
+
+def _nonempty_str(v: Any) -> Any:
+    return v if isinstance(v, str) and v else _MISSING
+
+
+def _nullable_str(v: Any) -> Any:
+    return v if v is None or isinstance(v, str) else _MISSING
+
+
+# dotted key -> validator returning the (normalised) value or _MISSING for "invalid, use the default"
+_RULES: dict[str, Any] = {
+    "protocol": _one_of(*ALLOWED_PROTOCOLS),
+    "last_device_id": _nullable_str,
+    "last_source_id": _nullable_str,
+    "close_to_tray": _bool, "start_hidden": _bool, "autostart": _bool, "notifications": _bool,
+    "mirror.preset": _one_of(*MIRROR_PRESETS),
+    "mirror.max_height": _int_in(144, 4320),
+    "mirror.fps": _int_in(1, 240),
+    "mirror.bitrate": _int_in(100_000, 200_000_000),
+    "mirror.audio": _bool,
+    "mirror.target_delay_ms": _int_in(0, 10_000),
+    "mirror.codec": _one_of(*CODECS),
+    "audio.source": _one_of(*AUDIO_SOURCES),
+    "audio.mic": _nonempty_str,
+    "audio.mic_name": lambda v: v if v is None or _nonempty_str(v) is not _MISSING else _MISSING,
+    "audio.app": lambda v: v if v is None or _nonempty_str(v) is not _MISSING else _MISSING,
+    "audio.app_name": lambda v: v if v is None or _nonempty_str(v) is not _MISSING else _MISSING,
+    "media.volume": _float_in(0.0, 1.0),
+    "media.auto_advance": _bool,
+}
+
+
+def _validate_values(data: dict) -> None:
+    """Range / enum / kind checks (NaN and inf included): a bad value is replaced by its default, with a
+    warning, so one corrupt key never takes the rest of the config down."""
+    for key, check in _RULES.items():
+        *parents, leaf = key.split(".")
+        node: Any = data
+        for part in parents:
+            node = node.get(part) if isinstance(node, dict) else None
+        if not isinstance(node, dict) or leaf not in node:
+            continue
+        good = check(node[leaf])
+        if good is _MISSING:
+            default: Any = DEFAULTS
+            for part in key.split("."):
+                default = default[part]
+            log.warning("config: %s has an invalid value (%r); using the default", key, node[leaf])
+            node[leaf] = copy.deepcopy(default)
+        else:
+            node[leaf] = good
 
 
 def _migrate(data: dict) -> dict:
@@ -146,23 +225,9 @@ class Settings:
 
     def _sanitize(self) -> None:
         _reset_wrong_types(self._data, DEFAULTS)
-        if self._data.get("protocol") not in ALLOWED_PROTOCOLS:
-            self._data["protocol"] = "auto"
-        mirror = self._data.get("mirror")
-        if isinstance(mirror, dict) and mirror.get("codec") not in CODECS:
-            mirror["codec"] = DEFAULTS["mirror"]["codec"]
         if not isinstance(self._data.get("manual_devices"), list):
             self._data["manual_devices"] = []
-        audio = self._data.get("audio")
-        if not isinstance(audio, dict):
-            audio = self._data["audio"] = copy.deepcopy(DEFAULTS["audio"])
-        if audio.get("source") not in AUDIO_SOURCES:
-            audio["source"] = "system"
-        if not isinstance(audio.get("mic"), str) or not audio["mic"]:
-            audio["mic"] = "default"
-        for k in ("app", "app_name", "mic_name"):
-            if not isinstance(audio.get(k), str) or not audio[k]:
-                audio[k] = None
+        _validate_values(self._data)
 
     # --- access ------------------------------------------------------------
     def as_dict(self) -> dict[str, Any]:
