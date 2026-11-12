@@ -273,7 +273,7 @@ async def _start_without_loop(d):
 @pytest.mark.asyncio
 async def test_rescan_follows_lan_ip_change_and_restarts_mdns(monkeypatch):
     """Autostart before NetworkManager: get_lan_ip() is 127.0.0.1 first, the DHCP lease arrives later."""
-    ips = iter(["127.0.0.1", "192.168.1.16", "192.168.1.16", "10.0.0.5"])
+    ips = iter(["127.0.0.1", "192.0.2.16", "192.0.2.16", "198.51.100.5"])
     monkeypatch.setattr(disc, "get_lan_ip", lambda: next(ips))
     d = disc.Discovery(lambda devs: None, rescan_interval=3600)
     events, bound = [], []
@@ -294,21 +294,21 @@ async def test_rescan_follows_lan_ip_change_and_restarts_mdns(monkeypatch):
     await _start_without_loop(d)
     assert d.interface_ip == "127.0.0.1"
     await d.rescan()                       # network came up
-    assert d.interface_ip == "192.168.1.16"
+    assert d.interface_ip == "192.0.2.16"
     await d.rescan()                       # unchanged: no restart
     await d.rescan()                       # moved to another network
-    assert d.interface_ip == "10.0.0.5"
-    assert bound == ["192.168.1.16", "192.168.1.16", "10.0.0.5"]   # SSDP binds to the fresh address
-    assert [e for e in events if e[0] == "start"] == [("start", "127.0.0.1"), ("start", "192.168.1.16"),
-                                                       ("start", "10.0.0.5")]
+    assert d.interface_ip == "198.51.100.5"
+    assert bound == ["192.0.2.16", "192.0.2.16", "198.51.100.5"]   # SSDP binds to the fresh address
+    assert [e for e in events if e[0] == "start"] == [("start", "127.0.0.1"), ("start", "192.0.2.16"),
+                                                       ("start", "198.51.100.5")]
     assert len([e for e in events if e[0] == "stop"]) == 2          # one restart per change, none for "unchanged"
     await d.stop()
 
 
 @pytest.mark.asyncio
 async def test_explicit_interface_ip_is_never_replaced(monkeypatch):
-    monkeypatch.setattr(disc, "get_lan_ip", lambda: "10.9.9.9")
-    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16", enable_mdns=False)
+    monkeypatch.setattr(disc, "get_lan_ip", lambda: "198.51.100.9")
+    d = disc.Discovery(lambda devs: None, interface_ip="192.0.2.16", enable_mdns=False)
 
     async def fake_ssdp(target=None, timeout=3.0):
         return []
@@ -316,7 +316,7 @@ async def test_explicit_interface_ip_is_never_replaced(monkeypatch):
     monkeypatch.setattr(d, "_ssdp_scan", fake_ssdp)
     await _start_without_loop(d)
     await d.rescan()
-    assert d.interface_ip == "192.168.1.16"
+    assert d.interface_ip == "192.0.2.16"
     await d.stop()
 
 
@@ -349,7 +349,7 @@ async def test_ssdp_flood_from_one_host_fetches_one_description_and_scan_stays_b
     """1000 replies with different LOCATION ports from one IP, and a description server that never answers."""
     import time
 
-    flood = [(SSDP_RESPONSE.replace(b":9197/", f":{20000 + i}/".encode()), ("192.168.1.10", 1900))
+    flood = [(SSDP_RESPONSE.replace(b":9197/", f":{20000 + i}/".encode()), ("192.0.2.10", 1900))
              for i in range(1000)]
     _fake_ssdp_endpoint(monkeypatch, flood)
     monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 1.0)
@@ -372,7 +372,7 @@ async def test_ssdp_flood_from_one_host_fetches_one_description_and_scan_stays_b
 async def test_ssdp_many_hosts_are_fetched_concurrently_within_the_deadline(monkeypatch):
     import time
 
-    hosts = [(SSDP_RESPONSE.replace(b"192.168.1.10", f"192.168.1.{h}".encode()), (f"192.168.1.{h}", 1900))
+    hosts = [(SSDP_RESPONSE.replace(b"192.0.2.10", f"192.0.2.{h}".encode()), (f"192.0.2.{h}", 1900))
              for h in range(20, 60)]
     _fake_ssdp_endpoint(monkeypatch, hosts)
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
@@ -396,20 +396,20 @@ async def test_ssdp_many_hosts_are_fetched_concurrently_within_the_deadline(monk
 
 @pytest.mark.asyncio
 async def test_ssdp_unresponsive_first_host_does_not_block_the_others(monkeypatch):
-    hosts = [(SSDP_RESPONSE.replace(b"192.168.1.10", f"192.168.1.{h}".encode()), (f"192.168.1.{h}", 1900))
+    hosts = [(SSDP_RESPONSE.replace(b"192.0.2.10", f"192.0.2.{h}".encode()), (f"192.0.2.{h}", 1900))
              for h in (21, 22)]
     _fake_ssdp_endpoint(monkeypatch, hosts)
     monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 1.0)
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
 
     async def fetch(loc):
-        if "192.168.1.21" in loc:
+        if "192.0.2.21" in loc:
             await asyncio.sleep(3600)
         return disc.parse_description(DESCRIPTION)
 
     d._fetch_description = fetch
     await d._ssdp_scan(timeout=0.7)
-    assert [x.ip for x in d.devices] == ["192.168.1.22"]
+    assert [x.ip for x in d.devices] == ["192.0.2.22"]
 
 
 # ------------------------------------------------------------------ hardening: mDNS announcements are untrusted
@@ -434,7 +434,7 @@ def _patch_info(monkeypatch, info):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bad", ["127.0.0.1", "169.254.10.10", "224.0.0.251", "0.0.0.0", "240.0.0.1"])
 async def test_resolve_cast_rejects_unusable_addresses(monkeypatch, bad):
-    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
+    d = disc.Discovery(lambda devs: None, interface_ip="192.0.2.16")
     d._azc = type("Z", (), {"zeroconf": None})()
     _patch_info(monkeypatch, _FakeInfo([bad], 8009))
     await d._resolve_cast("_googlecast._tcp.local.", "Fake._googlecast._tcp.local.")
@@ -443,30 +443,30 @@ async def test_resolve_cast_rejects_unusable_addresses(monkeypatch, bad):
 
 @pytest.mark.asyncio
 async def test_resolve_cast_skips_bad_addresses_and_uses_the_first_usable(monkeypatch):
-    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
+    d = disc.Discovery(lambda devs: None, interface_ip="192.0.2.16")
     d._azc = type("Z", (), {"zeroconf": None})()
-    _patch_info(monkeypatch, _FakeInfo(["127.0.0.1", "169.254.1.1", "192.168.1.10"], 8009))
+    _patch_info(monkeypatch, _FakeInfo(["127.0.0.1", "169.254.1.1", "192.0.2.10"], 8009))
     await d._resolve_cast("_googlecast._tcp.local.", "Real._googlecast._tcp.local.")
-    assert [x.ip for x in d.devices] == ["192.168.1.10"]
+    assert [x.ip for x in d.devices] == ["192.0.2.10"]
 
 
 def test_foreign_announcement_cannot_overwrite_a_live_service():
-    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
+    d = disc.Discovery(lambda devs: None, interface_ip="192.0.2.16")
     real = disc.parse_cast_txt(CAST_TXT)
-    d.upsert_cast("192.168.1.10", 8009, real, zc_name="Real._googlecast._tcp.local.")
-    d.upsert_cast("192.168.1.10", 9, {"id": "deadbeef", "name": "Pwned", "model": "x"},
+    d.upsert_cast("192.0.2.10", 8009, real, zc_name="Real._googlecast._tcp.local.")
+    d.upsert_cast("192.0.2.10", 9, {"id": "deadbeef", "name": "Pwned", "model": "x"},
                   zc_name="Evil._googlecast._tcp.local.")
     dev = d.devices[0]
-    assert dev.cast_port == 8009 and dev.id == "8f2a1b3c4d5e6f708192a3b4c5d6e7f8" and dev.name == "Goguś"
-    assert d._entries["192.168.1.10"].zc_names == {"Real._googlecast._tcp.local."}
+    assert dev.cast_port == 8009 and dev.id == "8f2a1b3c4d5e6f708192a3b4c5d6e7f8" and dev.name == "Salon"
+    assert d._entries["192.0.2.10"].zc_names == {"Real._googlecast._tcp.local."}
     # the evil service going away must not take the real one offline
     d._cast_removed("Evil._googlecast._tcp.local.")
     assert dev.online
 
 
 def test_same_service_may_update_its_own_entry_and_a_dead_one_may_be_replaced():
-    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
-    ip, name = "192.168.1.10", "Real._googlecast._tcp.local."
+    d = disc.Discovery(lambda devs: None, interface_ip="192.0.2.16")
+    ip, name = "192.0.2.10", "Real._googlecast._tcp.local."
     d.upsert_cast(ip, 8009, {"id": "aa", "name": "A", "model": "m"}, zc_name=name)
     d.upsert_cast(ip, 8010, {"id": "aa", "name": "A2", "model": "m"}, zc_name=name)   # same service: update
     assert d.devices[0].cast_port == 8010 and d.devices[0].name == "A2"
@@ -478,38 +478,38 @@ def test_same_service_may_update_its_own_entry_and_a_dead_one_may_be_replaced():
 # ------------------------------------------------------------------ hardening 2: hostile replies cannot evict real devices
 
 def _resp(ip, port):
-    return (SSDP_RESPONSE.replace(b"192.168.1.10:9197", f"{ip}:{port}".encode()), (ip, 1900))
+    return (SSDP_RESPONSE.replace(b"192.0.2.10:9197", f"{ip}:{port}".encode()), (ip, 1900))
 
 
 @pytest.mark.asyncio
 async def test_flood_of_hosts_does_not_mark_a_known_tv_offline(monkeypatch):
     flood = [_resp(f"10.{i // 250}.{i % 250}.7", 9197) for i in range(1000)]
-    tv = _resp("192.168.1.10", 9197)
+    tv = _resp("192.0.2.10", 9197)
     _fake_ssdp_endpoint(monkeypatch, flood + [tv])          # the real TV answers last
     monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 1.0)
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
-    d.upsert_dlna("192.168.1.10", "http://192.168.1.10:9197/dmr", {"friendly_name": "Old name", "udn": "uuid:1-2"})
-    d._entries["192.168.1.10"].dlna_misses = disc.SSDP_MISSES_OFFLINE - 1
+    d.upsert_dlna("192.0.2.10", "http://192.0.2.10:9197/dmr", {"friendly_name": "Old name", "udn": "uuid:1-2"})
+    d._entries["192.0.2.10"].dlna_misses = disc.SSDP_MISSES_OFFLINE - 1
 
     async def fetch(loc):
-        if "192.168.1.10" in loc:
+        if "192.0.2.10" in loc:
             return {**disc.parse_description(DESCRIPTION), "friendly_name": "New name"}
         await asyncio.sleep(3600)
 
     d._fetch_description = fetch
     await d._ssdp_scan(timeout=0.7)
-    dev = d.devices[0] if d.devices[0].ip == "192.168.1.10" else next(x for x in d.devices if x.ip == "192.168.1.10")
+    dev = d.devices[0] if d.devices[0].ip == "192.0.2.10" else next(x for x in d.devices if x.ip == "192.0.2.10")
     assert dev.online and dev.name == "New name"
-    assert d._entries["192.168.1.10"].dlna_misses == 0
+    assert d._entries["192.0.2.10"].dlna_misses == 0
 
 
 @pytest.mark.asyncio
 async def test_abandoned_fetch_of_a_responding_known_host_is_not_a_miss(monkeypatch):
-    _fake_ssdp_endpoint(monkeypatch, [_resp("192.168.1.10", 9197)])
+    _fake_ssdp_endpoint(monkeypatch, [_resp("192.0.2.10", 9197)])
     monkeypatch.setattr(disc, "SSDP_SCAN_DEADLINE", 0.5)
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
-    d.upsert_dlna("192.168.1.10", "http://192.168.1.10:9197/dmr", {"friendly_name": "TV", "udn": "uuid:1-2"})
-    e = d._entries["192.168.1.10"]
+    d.upsert_dlna("192.0.2.10", "http://192.0.2.10:9197/dmr", {"friendly_name": "TV", "udn": "uuid:1-2"})
+    e = d._entries["192.0.2.10"]
     e.dlna_misses = disc.SSDP_MISSES_OFFLINE - 1
 
     async def hang(loc):
@@ -526,8 +526,8 @@ async def test_abandoned_fetch_of_a_responding_known_host_is_not_a_miss(monkeypa
 
 @pytest.mark.asyncio
 async def test_fast_bogus_location_does_not_displace_the_real_description(monkeypatch):
-    bogus = _resp("192.168.1.10", 1)                          # same sender IP, wrong port, answers first
-    real = _resp("192.168.1.10", 9197)
+    bogus = _resp("192.0.2.10", 1)                          # same sender IP, wrong port, answers first
+    real = _resp("192.0.2.10", 9197)
     _fake_ssdp_endpoint(monkeypatch, [bogus, real])
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
     tried = []
@@ -538,13 +538,13 @@ async def test_fast_bogus_location_does_not_displace_the_real_description(monkey
 
     d._fetch_description = fetch
     await d._ssdp_scan(timeout=0.7)
-    assert tried == ["http://192.168.1.10:1/dmr", "http://192.168.1.10:9197/dmr"]
-    assert d.devices[0].dlna_location == "http://192.168.1.10:9197/dmr"
+    assert tried == ["http://192.0.2.10:1/dmr", "http://192.0.2.10:9197/dmr"]
+    assert d.devices[0].dlna_location == "http://192.0.2.10:9197/dmr"
 
 
 @pytest.mark.asyncio
 async def test_hanging_location_times_out_and_next_one_is_tried(monkeypatch):
-    _fake_ssdp_endpoint(monkeypatch, [_resp("192.168.1.10", 1), _resp("192.168.1.10", 9197)])
+    _fake_ssdp_endpoint(monkeypatch, [_resp("192.0.2.10", 1), _resp("192.0.2.10", 9197)])
     monkeypatch.setattr(disc, "SSDP_FETCH_TIMEOUT", 0.3)
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
 
@@ -560,7 +560,7 @@ async def test_hanging_location_times_out_and_next_one_is_tried(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_locations_per_host_are_capped(monkeypatch):
-    _fake_ssdp_endpoint(monkeypatch, [_resp("192.168.1.10", 20000 + i) for i in range(50)])
+    _fake_ssdp_endpoint(monkeypatch, [_resp("192.0.2.10", 20000 + i) for i in range(50)])
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
     tried = []
 
@@ -576,9 +576,9 @@ async def test_locations_per_host_are_capped(monkeypatch):
 @pytest.mark.asyncio
 async def test_known_hosts_are_kept_when_the_host_limit_is_hit(monkeypatch):
     flood = [_resp(f"10.0.{i // 250}.{i % 250 + 1}", 9197) for i in range(disc.SSDP_MAX_HOSTS + 20)]
-    _fake_ssdp_endpoint(monkeypatch, flood + [_resp("192.168.1.10", 9197)])
+    _fake_ssdp_endpoint(monkeypatch, flood + [_resp("192.0.2.10", 9197)])
     d = disc.Discovery(lambda devs: None, interface_ip="127.0.0.1")
-    d.upsert_dlna("192.168.1.10", "http://192.168.1.10:9197/dmr", {"friendly_name": "TV", "udn": "uuid:1-2"})
+    d.upsert_dlna("192.0.2.10", "http://192.0.2.10:9197/dmr", {"friendly_name": "TV", "udn": "uuid:1-2"})
     tried = []
 
     async def fetch(loc):
@@ -587,12 +587,12 @@ async def test_known_hosts_are_kept_when_the_host_limit_is_hit(monkeypatch):
 
     d._fetch_description = fetch
     await d._ssdp_scan(timeout=0.7)
-    assert "http://192.168.1.10:9197/dmr" in tried and len(tried) == disc.SSDP_MAX_HOSTS
+    assert "http://192.0.2.10:9197/dmr" in tried and len(tried) == disc.SSDP_MAX_HOSTS
 
 
 @pytest.mark.asyncio
 async def test_rescan_keeps_last_good_address_when_network_drops(monkeypatch):
-    ips = iter(["192.168.1.16", "127.0.0.1", "127.0.0.1", "192.168.1.16", "10.0.0.5"])
+    ips = iter(["192.0.2.16", "127.0.0.1", "127.0.0.1", "192.0.2.16", "198.51.100.5"])
     monkeypatch.setattr(disc, "get_lan_ip", lambda: next(ips))
     d = disc.Discovery(lambda devs: None, rescan_interval=3600)
     events = []
@@ -612,10 +612,10 @@ async def test_rescan_keeps_last_good_address_when_network_drops(monkeypatch):
     await _start_without_loop(d)
     await d.rescan()
     await d.rescan()
-    assert d.interface_ip == "192.168.1.16"     # cable pulled: do not fall back to loopback
+    assert d.interface_ip == "192.0.2.16"     # cable pulled: do not fall back to loopback
     await d.rescan()                            # lease is back, same address: nothing to rebind
     await d.rescan()                            # genuinely new network
-    assert d.interface_ip == "10.0.0.5"
-    assert [e[1] for e in events if e[0] == "start"] == ["192.168.1.16", "10.0.0.5"]
+    assert d.interface_ip == "198.51.100.5"
+    assert [e[1] for e in events if e[0] == "start"] == ["192.0.2.16", "198.51.100.5"]
     assert len([e for e in events if e[0] == "stop"]) == 1          # a single restart, for the real change
     await d.stop()
