@@ -1243,11 +1243,11 @@ def test_dlna_mirror_ended_on_tv_cleans_up(monkeypatch, tv_state):
     async def go():
         a, server, players, states, stats, pipes = _real_dlna_mirror(monkeypatch)
         await a.start()
-        assert "mirror" in server.lives
+        assert any(n.startswith("mirror") for n in server.lives)
         a._on_playback(PlaybackState(state=tv_state, error="x" if tv_state == "error" else None))
         a._on_playback(PlaybackState(state=tv_state))   # repeated poll result: cleanup runs once
         await settle()
-        assert "mirror" not in server.lives                  # no ffmpeg on a stray LAN GET
+        assert not server.lives                              # no ffmpeg on a stray LAN GET
         assert a._stats_task is not None and a._stats_task.done()   # no more stats
         assert players[0].calls.count("close") == 1          # HTTP session closed, once
         assert pipes[0].closed
@@ -1263,7 +1263,7 @@ def test_dlna_mirror_failed_start_cleans_up(monkeypatch):
         a, server, players, states, stats, pipes = _real_dlna_mirror(monkeypatch, load_fail=True)
         with pytest.raises(AirlinxError):
             await a.start()
-        assert "mirror" not in server.lives
+        assert not server.lives
         assert "close" in players[0].calls and pipes[0].closed
         assert a._stats_task is None
 

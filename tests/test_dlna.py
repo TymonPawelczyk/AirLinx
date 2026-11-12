@@ -262,3 +262,25 @@ async def test_dlna_mirror_unregisters_live_before_the_slow_soap_stop():
         assert seen["lives_during_stop"] == {}
     finally:
         await server.stop()
+
+
+@pytest.mark.asyncio
+async def test_late_stop_of_old_mirror_does_not_unregister_the_new_sessions_live():
+    from airlinx.core.media_server import MediaServer
+
+    server = MediaServer(lan_ip="127.0.0.1")
+    await server.start("127.0.0.1", 0)
+    try:
+        async def ts():
+            yield b"\x47" * 188
+
+        old = dlna.DlnaMirror(DEV, server, ts(), player=dlna.DlnaPlayer(DEV, dmr=FakeDmr(), poll_interval=3600))
+        new = dlna.DlnaMirror(DEV, server, ts(), player=dlna.DlnaPlayer(DEV, dmr=FakeDmr(), poll_interval=3600))
+        await old.start()
+        new_url = await new.start()
+        await old.stop()                       # delayed cleanup of the previous session
+        assert len(server.lives) == 1
+        token = new_url.split("/")[4]
+        assert token in server.lives
+    finally:
+        await server.stop()
