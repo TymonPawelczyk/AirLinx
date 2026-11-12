@@ -19,8 +19,6 @@ def crashed_pulse():
     return pulse
 
 
-BUG = pytest.mark.xfail(strict=True, reason="BUG: cleanup_orphans() calls .items() / iterates the state file values without checking "
-                       "their types, so a wrong-typed state file raises at start-up instead of just unloading our sink")
 GOOD = {"origins": {"300": ANALOG}, "pinned": []}
 
 
@@ -28,8 +26,10 @@ GOOD = {"origins": {"300": ANALOG}, "pinned": []}
     "",                                  # empty file
     "{not json",                         # truncated write
     "null", "42", '"text"', "[1, 2]",    # valid JSON, wrong root type
-    pytest.param(json.dumps({"origins": [1, 2]}), marks=BUG),          # wrong container types
-    pytest.param(json.dumps({"origins": "x", "pinned": 5}), marks=BUG),
+    json.dumps({"origins": [1, 2]}),          # wrong container types
+    json.dumps({"origins": "x", "pinned": 5}),
+    json.dumps({"origins": {"300": ANALOG}, "pinned": "300"}),
+    json.dumps({"origins": {"300": [ANALOG]}, "pinned": {"300": 1}}),
     json.dumps({"origins": {"abc": 1, "": 2, "-5": 3}, "pinned": ["x", None, 1.5]}),
     json.dumps({"origins": {"300": "not-a-sink"}, "pinned": [300]}),
     json.dumps({"origins": {"300": None}}),
