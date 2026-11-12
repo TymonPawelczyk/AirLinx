@@ -245,3 +245,96 @@ async def test_cached_bytes_range_semantics(server, blob, hdr, status, expected,
             assert (await r.read()) == expected
     async with server.sess.head(server.poster_url(url), headers={"Range": hdr}) as r:
         assert r.status == status and (await r.read()) == b""
+
+
+# ----------------------------------------------------------------------------- receiver binding and token lifetime
+# DLNA has no receiver authentication, so the URL is the only credential: it is valid for the one
+# receiver it was published for (source IP) and for the playback session only. The TV legitimately
+# issues many GETs (Range, retries, HEAD, poster, subtitles), so "one-shot" would break playback.
+
+def publish_for(server, blob, target_ip, **kw):
+    item = MediaItem("1", str(blob), "Film", 10.0, "video", thumbnail_png=b"\x89PNG" + b"x" * 50)
+    subs = [probe.SubtitleTrack(index=-1, codec="subrip", external_path=str(blob))]
+    p = probe.PlaybackPlan("dlna", "direct", "video/mp4", "video", duration=10.0, subtitles=subs)
+    return server.publish_plan(item, p, target_ip=target_ip, **kw)[0]
+
+
+async def test_url_works_for_the_target_receiver_with_many_requests(server, blob):
+    url = publish_for(server, blob, "127.0.0.1")   # the test client connects from 127.0.0.1
+    for hdr in ({}, {"Range": "bytes=0-9"}, {"Range": "bytes=100-"}, {}):
+        async with server.sess.get(url, headers=hdr) as r:
+            assert r.status in (200, 206)
+    async with server.sess.head(url) as r:
+        assert r.status == 200
+    async with server.sess.get(server.poster_url(url)) as r:
+        assert r.status == 200
+
+
+async def test_url_is_refused_from_any_other_ip_on_every_route(server, blob):
+    url = publish_for(server, blob, "192.0.2.10")   # published for the TV; we are 127.0.0.1
+    token = url.split("/")[4]
+    urls = [url, server.poster_url(url), f"{base(server)}/sub/{token}/0.srt",
+            f"{base(server)}/s/{token}/media.ts", f"{base(server)}/i/{token}/media.jpg"]
+    for u in urls:
+        async with server.sess.get(u) as r:
+            assert r.status == 404, u
+        async with server.sess.head(u) as r:
+            assert r.status == 404, u
+
+
+async def test_url_without_a_known_receiver_is_not_ip_bound(server, blob):
+    url = publish(server, blob)   # no target_ip (tests, manual use)
+    async with server.sess.get(url) as r:
+        assert r.status == 200
+
+
+async def test_binding_can_be_disabled(blob):
+    s = ms.MediaServer(lan_ip="127.0.0.1", bind_to_target=False)
+    await s.start(host="127.0.0.1", port=0)
+    try:
+        async with aiohttp.ClientSession() as sess:
+            url = publish_for(s, blob, "192.0.2.10")
+            async with sess.get(url) as r:
+                assert r.status == 200
+    finally:
+        await s.stop()
+
+
+async def test_live_url_is_bound_to_the_receiver(server):
+    async def gen():
+        yield b"x" * 188
+
+    good = server.register_live("a", gen, target_ip="127.0.0.1")
+    bad = server.register_live("b", gen, target_ip="192.0.2.10")
+    async with server.sess.get(good) as r:
+        assert r.status == 200
+    async with server.sess.get(bad) as r:
+        assert r.status == 404
+
+
+async def test_unpublish_invalidates_the_url_for_the_receiver_too(server, blob):
+    url = publish_for(server, blob, "127.0.0.1")
+    async with server.sess.get(url) as r:
+        assert r.status == 200
+    server.unpublish(url)
+    async with server.sess.get(url) as r:
+        assert r.status == 404
+
+
+async def test_idle_token_expires_but_activity_keeps_it_alive(blob):
+    now = [1000.0]
+    s = ms.MediaServer(lan_ip="127.0.0.1", token_ttl=60, clock=lambda: now[0])
+    await s.start(host="127.0.0.1", port=0)
+    try:
+        async with aiohttp.ClientSession() as sess:
+            url = publish_for(s, blob, "127.0.0.1")
+            for dt in (50, 50, 50):             # a request every 50 s keeps a 60 s idle TTL alive
+                now[0] += dt
+                async with sess.get(url) as r:
+                    assert r.status == 200
+            now[0] += 61
+            async with sess.get(url) as r:
+                assert r.status == 404
+            assert not s.items                  # and the entry is dropped, not just hidden
+    finally:
+        await s.stop()
