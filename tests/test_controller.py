@@ -1542,3 +1542,156 @@ def test_unpinned_dlna_only_tv_plays_without_asking(tmp_path):
         assert (await env.ctl.mirror_start("monitor:DP-4"))["protocol"] == "dlna"
 
     run(go())
+
+
+# ----------------------------------------------------------------------------- DLNA consent is remembered
+def _unverified_media_env(tmp_path, known_tvs, n=3):
+    from airlinx.core.models import TvNotFoundError
+
+    _pin(known_tvs)
+    env = Env(tmp_path)
+    env.player_fail["cast"] = TvNotFoundError("192.0.2.10:8009: refused")
+    return env, _media_files(tmp_path, n)
+
+
+def _errors(env, code="cast_unverified"):
+    return [p for e, p in env.events if e == "error" and p.get("code") == code]
+
+
+async def _consent_first_item(env, files):
+    await env.ctl.start()
+    await env.ctl.devices_select("cast-salon")
+    items = await env.ctl.media_add(paths=files)
+    assert (await env.ctl.media_play(items[0].id))["code"] == "cast_unverified"
+    err = _errors(env)[-1]
+    res = await env.ctl.dispatch(err["retry"]["method"], err["retry"]["params"])   # the user clicked "DLNA"
+    assert res["ok"] and res["protocol"] == "dlna"
+    return items
+
+
+def test_consent_covers_next_prev_and_auto_advance(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs)
+
+    async def go():
+        items = await _consent_first_item(env, files)
+        assert len(_errors(env)) == 1
+        assert (await env.ctl.media_next()) == {"ok": True, "protocol": "dlna", "itemId": items[1].id}
+        env.players[-1].on_state(PlaybackState("ended", position=10, duration=10, item_id=items[1].id))
+        await settle()
+        assert env.ctl.playback.item_id == items[2].id and env.ctl.media_protocol == "dlna"
+        assert (await env.ctl.media_prev())["protocol"] == "dlna"
+        assert len(_errors(env)) == 1, "the dialog must not come back for every file"
+        assert [p.proto for p in env.players] == ["cast", "dlna"], "no further Cast attempt (and no timeout) per file"
+
+    run(go())
+
+
+def test_consent_covers_subtitle_reload(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs, 1)
+
+    async def go():
+        items = await _consent_first_item(env, files)
+        await env.ctl.media_subtitles(items[0].id, None)       # DLNA reloads at the current position
+        assert len(_errors(env)) == 1 and env.ctl.media_protocol == "dlna"
+        await env.ctl.media_subtitles(items[0].id, str(tmp_path / "film0.pl.srt"))
+        assert len(_errors(env)) == 1
+
+    run(go())
+
+
+def test_media_stop_forgets_the_consent(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs)
+
+    async def go():
+        items = await _consent_first_item(env, files)
+        await env.ctl.media_stop()
+        res = await env.ctl.media_play(items[1].id)
+        assert res["code"] == "cast_unverified" and len(_errors(env)) == 2
+
+    run(go())
+
+
+def test_end_of_queue_forgets_the_consent(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs, 1)
+
+    async def go():
+        items = await _consent_first_item(env, files)
+        env.players[-1].on_state(PlaybackState("ended", position=10, duration=10, item_id=items[0].id))
+        await settle()
+        assert (await env.ctl.media_play(items[0].id))["code"] == "cast_unverified"
+
+    run(go())
+
+
+def test_changing_the_device_forgets_the_consent(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs)
+
+    async def go():
+        items = await _consent_first_item(env, files)
+        await env.ctl.devices_select("cast-syp")
+        await env.ctl.devices_select("cast-salon")
+        res = await env.ctl.media_play(items[1].id)
+        assert res["code"] == "cast_unverified" and len(_errors(env)) == 2
+
+    run(go())
+
+
+def test_selecting_the_same_device_again_keeps_the_consent(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs)
+
+    async def go():
+        items = await _consent_first_item(env, files)
+        await env.ctl.devices_select("cast-salon")
+        assert (await env.ctl.media_play(items[1].id))["protocol"] == "dlna"
+        assert len(_errors(env)) == 1
+
+    run(go())
+
+
+def test_shutdown_forgets_the_consent_and_nothing_is_persisted(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs, 1)
+    pins_before = known_tvs.read_text()
+
+    async def go():
+        await _consent_first_item(env, files)
+        cfg = env.ctl.settings.path
+        on_disk = cfg.read_text() if cfg.exists() else ""
+        assert "dlna" not in on_disk.replace('"protocol": "auto"', "") and "consent" not in on_disk
+        assert known_tvs.read_text() == pins_before
+        await env.ctl.shutdown()
+        assert not env.ctl._media_dlna_consent
+
+    run(go())
+
+
+def test_media_consent_does_not_cover_mirroring(tmp_path, known_tvs):
+    env, files = _unverified_media_env(tmp_path, known_tvs, 1)
+    env.modes["cast"] = "refused"
+
+    async def go():
+        await _consent_first_item(env, files)
+        res = await env.ctl.mirror_start("monitor:DP-4")
+        assert res["code"] == "cast_unverified", "mirroring asks on its own"
+
+    run(go())
+
+
+def test_mirror_consent_applies_to_that_start_only(tmp_path, known_tvs):
+    _pin(known_tvs)
+    env = Env(tmp_path)
+    env.modes["cast"] = "refused"
+    env.player_fail["cast"] = RuntimeError("cast down")
+    files = _media_files(tmp_path, 1)
+
+    async def go():
+        await env.ctl.start()
+        await env.ctl.devices_select("cast-salon")
+        assert (await env.ctl.mirror_start("monitor:DP-4"))["code"] == "cast_unverified"
+        err = _errors(env)[-1]
+        assert (await env.ctl.dispatch(err["retry"]["method"], err["retry"]["params"]))["protocol"] == "dlna"
+        await env.ctl.mirror_stop()
+        assert (await env.ctl.mirror_start("monitor:DP-4"))["code"] == "cast_unverified", "next start asks again"
+        items = await env.ctl.media_add(paths=files)
+        assert (await env.ctl.media_play(items[0].id))["code"] == "cast_unverified"
+
+    run(go())

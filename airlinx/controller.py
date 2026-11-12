@@ -450,6 +450,9 @@ class Controller:
         self.queue: list[MediaItem] = []
         self.playback = PlaybackState(state="idle", volume=float(settings.get("media.volume", 1.0)))
         self.media_protocol: Optional[str] = None
+        # device id the user allowed to receive media over unverified DLNA (cast_unverified dialog); lives for
+        # the playback session only: never persisted, cleared by media.stop, device change, shutdown
+        self._media_dlna_consent: Optional[str] = None
         self.encoder: Optional[str] = None      # "h264_nvenc" | "libx264" | "" (none) | None (not probed yet)
         self.hevc_encoder: Optional[str] = None  # "hevc_nvenc" | "libx265" | "" (none) | None (not probed yet)
         self._encoder_task: Optional[asyncio.Task] = None
@@ -592,6 +595,7 @@ class Controller:
         if self._closed:
             return
         self._closed = True
+        self._media_dlna_consent = None
         if self._encoder_task is not None and not self._encoder_task.done():
             self._encoder_task.cancel()        # ffmpeg probe still running: not worth waiting for
         await self._cancel_start()
@@ -732,6 +736,8 @@ class Controller:
     async def devices_select(self, id: str) -> AppState:
         if all(d.id != id for d in self.devices):
             raise TvNotFoundError()
+        if self._media_dlna_consent not in (None, id):
+            self._media_dlna_consent = None
         self.selected_device_id = id
         self._selection_explicit = True
         self.settings.set("last_device_id", id)
@@ -909,6 +915,7 @@ class Controller:
                 return self._cast_unverified("mirror.start", params)
             if self._player is not None:
                 await self._stop_player()
+            self._media_dlna_consent = None              # mirroring replaces the playback session
             if self._session is not None:
                 await self._stop_session()
         session_opts, audio_info = await self._resolve_audio(opts)
@@ -1197,6 +1204,7 @@ class Controller:
                 if self._loop:
                     self._loop.create_task(self._auto_advance())
             else:
+                self._media_dlna_consent = None          # queue finished: the playback session is over
                 self.mode = "idle" if self.mode == "media" else self.mode
                 self.emit_state()
         elif st.state == "error":
@@ -1282,6 +1290,10 @@ class Controller:
                          protocol: Optional[str] = None) -> dict:
         await self._cancel_start()   # a pending mirror start would fall back to DLNA and fight the film
         dev = self.device()
+        if protocol == "dlna":
+            self._media_dlna_consent = dev.id            # explicit choice (the dialog's retry): remember it
+        elif protocol is None and self._media_dlna_consent == dev.id:
+            protocol = "dlna"                            # next / prev / auto-advance / subtitle reload
         protocols = self._protocols(dev, "media", protocol)
         if self._dlna_needs_consent(dev, protocols, protocol):
             params: dict[str, Any] = {"id": item.id}
@@ -1434,6 +1446,7 @@ class Controller:
 
     async def media_stop(self) -> dict:
         async with self.lock:
+            self._media_dlna_consent = None
             await self._stop_player()
         return {"ok": True}
 

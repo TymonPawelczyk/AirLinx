@@ -1005,7 +1005,8 @@
       ui.retry = p.retry || null;
       $('#confirm-title').textContent = 'Wysłać bez weryfikacji?';
       $('#confirm-msg').textContent = (p.message || 'Nie udało się potwierdzić tożsamości telewizora przez Google Cast.') +
-        ' Wybierz to tylko, jeśli to na pewno Twój telewizor.';
+        ' Wybierz to tylko, jeśli to na pewno Twój telewizor.' +
+        (p.retry && p.retry.method === 'media.play' ? ' Zgoda obowiązuje do zatrzymania odtwarzania.' : '');
       $('#confirm-yes').textContent = 'Wyślij przez DLNA';
       openDialog($('#confirm'), '[data-act="confirm-no"]');   // bezpieczna odpowiedź domyślnie
       return;
