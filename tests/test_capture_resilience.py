@@ -130,3 +130,78 @@ def test_flv_parser_is_robust_to_damage_after_a_valid_header():
                 p.feed(blob[i:i + 37])
         except ValueError:
             pass            # rejecting garbage is fine; any other exception is a bug
+
+
+# --- encoder probe: cancellation must not poison the global cache, and no ffmpeg may be left behind ---
+
+def test_probe_cancelled_midway_does_not_cache_partial_caps(monkeypatch):
+    monkeypatch.setattr(c, "_caps", {})
+    calls = []
+
+    async def fake_ok(args, timeout=8.0):
+        calls.append(args)
+        if len(calls) == 1:
+            return True                     # nvenc probed OK ...
+        await asyncio.sleep(30)             # ... then the cuda_scale probe hangs and gets cancelled
+        return True
+    monkeypatch.setattr(c, "_ffmpeg_ok", fake_ok)
+
+    async def main():
+        t = asyncio.ensure_future(c.probe_encoders())
+        await asyncio.sleep(0.05)
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+    run(main())
+    assert c._caps == {}, "a cancelled probe must leave the cache empty so the next call re-probes"
+
+
+def test_probe_publishes_all_caps_together(monkeypatch):
+    monkeypatch.setattr(c, "_caps", {})
+
+    async def fake_ok(args, timeout=8.0):
+        return True
+    monkeypatch.setattr(c, "_ffmpeg_ok", fake_ok)
+    caps = run(c.probe_encoders())
+    assert caps == {"nvenc": True, "cuda_scale": True, "x264": True, "hevc_nvenc": True, "x265": True}
+    assert c._caps == caps
+
+
+def _fake_ffmpeg_on_path(monkeypatch, tmp_path, script):
+    exe = tmp_path / "ffmpeg"
+    exe.write_text("#!/bin/sh\n" + script)
+    exe.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}:/usr/bin:/bin")
+    monkeypatch.setattr(c.shutil, "which", lambda n: str(exe) if n == "ffmpeg" else None)
+
+
+def _alive(pid):
+    try:
+        import os
+        os.kill(pid, 0)
+        # zombie counts as dead
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().rsplit(")", 1)[1].split()[0] != "Z"
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def test_ffmpeg_ok_kills_process_on_timeout(monkeypatch, tmp_path):
+    pidfile = tmp_path / "pid"
+    _fake_ffmpeg_on_path(monkeypatch, tmp_path, f"echo $$ > {pidfile}\nexec sleep 60\n")
+    assert run(c._ffmpeg_ok(["x"], timeout=0.5)) is False
+    assert not _alive(int(pidfile.read_text()))
+
+
+def test_ffmpeg_ok_kills_process_on_cancel(monkeypatch, tmp_path):
+    pidfile = tmp_path / "pid"
+    _fake_ffmpeg_on_path(monkeypatch, tmp_path, f"echo $$ > {pidfile}\nexec sleep 60\n")
+
+    async def main():
+        t = asyncio.ensure_future(c._ffmpeg_ok(["x"], timeout=30))
+        await asyncio.sleep(0.5)
+        t.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await t
+    run(main())
+    assert not _alive(int(pidfile.read_text()))

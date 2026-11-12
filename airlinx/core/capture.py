@@ -313,6 +313,7 @@ _caps: dict[str, bool] = {}
 async def _ffmpeg_ok(args: list[str], timeout: float = 8.0) -> bool:
     if not shutil.which("ffmpeg"):
         return False
+    p = None
     try:
         p = await asyncio.create_subprocess_exec(
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", *args,
@@ -320,18 +321,32 @@ async def _ffmpeg_ok(args: list[str], timeout: float = 8.0) -> bool:
         return await asyncio.wait_for(p.wait(), timeout) == 0
     except (OSError, asyncio.TimeoutError):
         return False
+    finally:
+        # timeout, cancellation or any other exit path: never leave the probe's ffmpeg running
+        if p is not None and p.returncode is None:
+            try:
+                p.kill()
+            except ProcessLookupError:
+                pass
+            try:
+                await asyncio.shield(p.wait())
+            except BaseException:
+                pass
 
 
 async def probe_encoders() -> dict[str, bool]:
-    """Detect NVENC (H.264 and HEVC), CUDA scaling, libx264 and libx265 once (cached)."""
+    """Detect NVENC (H.264 and HEVC), CUDA scaling, libx264 and libx265 once (cached). The cache is published only
+    after every probe finished, so a cancelled probe (e.g. TvBusyError during start) cannot leave a partial result."""
     if not _caps:
         src = ["-f", "lavfi", "-i", "testsrc2=s=256x144:r=30", "-frames:v", "3"]
-        _caps["nvenc"] = await _ffmpeg_ok(src + ["-c:v", "h264_nvenc", "-f", "null", "-"])
-        _caps["cuda_scale"] = _caps["nvenc"] and await _ffmpeg_ok(
+        found: dict[str, bool] = {}
+        found["nvenc"] = await _ffmpeg_ok(src + ["-c:v", "h264_nvenc", "-f", "null", "-"])
+        found["cuda_scale"] = found["nvenc"] and await _ffmpeg_ok(
             src + ["-vf", "format=bgr0,hwupload_cuda,scale_cuda=192:108", "-c:v", "h264_nvenc", "-f", "null", "-"])
-        _caps["x264"] = await _ffmpeg_ok(src + ["-c:v", "libx264", "-f", "null", "-"])
-        _caps["hevc_nvenc"] = _caps["nvenc"] and await _ffmpeg_ok(src + ["-c:v", "hevc_nvenc", "-f", "null", "-"])
-        _caps["x265"] = await _ffmpeg_ok(src + ["-c:v", "libx265", "-f", "null", "-"])
+        found["x264"] = await _ffmpeg_ok(src + ["-c:v", "libx264", "-f", "null", "-"])
+        found["hevc_nvenc"] = found["nvenc"] and await _ffmpeg_ok(src + ["-c:v", "hevc_nvenc", "-f", "null", "-"])
+        found["x265"] = await _ffmpeg_ok(src + ["-c:v", "libx265", "-f", "null", "-"])
+        _caps.update(found)
         log.info("encoder capabilities: %s", _caps)
     return dict(_caps)
 
