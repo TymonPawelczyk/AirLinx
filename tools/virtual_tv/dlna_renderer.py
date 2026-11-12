@@ -7,6 +7,10 @@ does (HEAD + ``Range: bytes=0-``, ``getcontentFeatures.dlna.org``, ``transferMod
 
 ``samsung_quirks=True`` (default): GetVolume/GetMute always answer 0, SetVolume is accepted and ignored,
 exactly like the real TV, which has a fixed output volume.
+
+Failure injection (``failure=``): ``reject_714`` / ``reject_716`` (UPnP fault on SetAVTransportURI), ``drop_soap``
+(close the connection) and ``no_response`` (never answer) on the ``failure_action`` call (default Play), and
+``drop_fetch`` (abort the media download after ``drop_after_bytes``).
 """
 from __future__ import annotations
 
@@ -179,10 +183,17 @@ class DlnaFetch:
     error: str = ""
 
 
+FAILURES = ("", "reject_714", "reject_716", "drop_soap", "no_response", "drop_fetch")
+
+
 class DlnaRenderer:
     def __init__(self, *, host: str = "127.0.0.1", port: int = 9197, name: str = "Wirtualny TV (DLNA)",
                  udn: Optional[str] = None, samsung_quirks: bool = True, out_dir: Optional[Path] = None,
-                 show: bool = False, realtime: bool = True) -> None:
+                 show: bool = False, realtime: bool = True, failure: str = "", failure_action: str = "Play",
+                 drop_after_bytes: int = 20_000) -> None:
+        if failure not in FAILURES:
+            raise ValueError(f"unknown failure mode {failure!r}")
+        self.failure, self.failure_action, self.drop_after_bytes = failure, failure_action, drop_after_bytes
         self.host, self.port, self.name = host, port, name
         self.udn = "uuid:" + (udn or str(uuid.uuid4()))
         self.samsung_quirks = samsung_quirks
@@ -277,6 +288,13 @@ class DlnaRenderer:
             return self._fault(401, "Invalid Action")
         args = {c.tag.split("}")[-1]: (c.text or "") for c in call}
         self.actions.append((time.time(), name, args))
+        if self.failure in ("drop_soap", "no_response") and name == self.failure_action:
+            if self.failure == "drop_soap":
+                request.transport.abort()  # type: ignore[union-attr]
+            await asyncio.sleep(3600)       # cancelled when the client goes away or the renderer stops
+        if self.failure in ("reject_714", "reject_716") and name == "SetAVTransportURI":
+            code = int(self.failure[-3:])
+            return self._fault(code, "Illegal MIME-type" if code == 714 else "Resource not found")
         handler = getattr(self, f"_a_{svc}_{name}", None)
         if handler is None or name not in SERVICES[svc][1]:
             return self._fault(401, "Invalid Action")
@@ -481,6 +499,8 @@ class DlnaRenderer:
                     self.live = r.headers.get("Content-Length") is None and r.status == 200
                     async for chunk in r.content.iter_chunked(64 * 1024):
                         get.bytes += len(chunk)
+                        if self.failure == "drop_fetch" and get.bytes >= self.drop_after_bytes:
+                            raise ConnectionResetError("connection dropped by the TV")
                         self.bytes_received += len(chunk)
                         if out:
                             out.write(chunk)

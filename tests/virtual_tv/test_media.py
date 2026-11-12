@@ -232,3 +232,101 @@ async def test_dlna_real_volume_when_quirks_are_off(server, tmp_path, clip):
         await player.stop()
         await player.close()
         await r.stop()
+
+
+# ------------------------------------------------------------------------------------------ DLNA failures
+@pytest.mark.parametrize("mode", ["reject_714", "reject_716", "drop_soap"])
+@pytest.mark.asyncio
+async def test_dlna_tv_rejecting_or_dropping_the_load_is_a_load_failure(server, tmp_path, clip, mode):
+    r = DlnaRenderer(port=0, out_dir=tmp_path / "d", failure=mode, failure_action="SetAVTransportURI")
+    await r.start()
+    seen = Seen()
+    player = DlnaPlayer(dlna_device(r), seen, poll_interval=0.2)
+    item = item_for(clip)
+    url, mime = await server.publish_async(item, "dlna", target_ip="127.0.0.1")
+    try:
+        with pytest.raises(models.AirlinxError) as ei:
+            await player.load(item, url, mime)
+        assert ei.value.code == "dlna_load_failed" and seen.states[-1].state == "error"
+        assert r.fetches == [] and r.state == "NO_MEDIA_PRESENT"
+    finally:
+        await player.close()
+        await r.stop()
+
+
+@pytest.mark.asyncio
+async def test_dlna_tv_resetting_the_media_connection_mid_stream_stops_playback(server, tmp_path, clip):
+    r = DlnaRenderer(port=0, out_dir=tmp_path / "d", failure="drop_fetch", drop_after_bytes=5_000)
+    await r.start()
+    player = DlnaPlayer(dlna_device(r), Seen(), poll_interval=0.2)
+    item = item_for(clip)
+    url, mime = await server.publish_async(item, "dlna", target_ip="127.0.0.1")
+    try:
+        await player.load(item, url, mime)
+        await wait_until(lambda: r.state == "STOPPED", 10, "the TV to stop after the reset")
+        get = r.fetches[1]
+        assert 5_000 <= get.bytes < clip.stat().st_size and "dropped" in get.error
+    finally:
+        await player.close()
+        await r.stop()
+
+
+def test_dlna_failure_mode_is_validated():
+    with pytest.raises(ValueError):
+        DlnaRenderer(failure="explode")
+
+
+# ------------------------------------------------------------------------------------------ DLNA mirror
+@pytest.mark.asyncio
+async def test_dlna_mirror_streams_a_live_source_to_the_tv(server, dlna):
+    from airlinx.core.dlna import DlnaMirror
+
+    chunks = [bytes([i]) * 8192 for i in range(1, 9)]
+
+    async def source():
+        for c in chunks:
+            yield c
+            await asyncio.sleep(0.05)
+
+    m = DlnaMirror(dlna_device(dlna), server, source)
+    url = await m.start()
+    try:
+        await wait_until(lambda: dlna.download_done.is_set(), 10, "the live stream to end")
+        get = dlna.fetches[1]
+        assert "/live/" in url and "TimeSeekRange.dlna.org" in get.headers and get.bytes == sum(map(len, chunks))
+    finally:
+        await m.stop()
+
+
+# ------------------------------------------------------------------------------------------ DLNA SOAP / SCPD
+@pytest.mark.asyncio
+async def test_dlna_scpd_is_valid_for_the_strict_upnp_client(dlna):
+    from async_upnp_client.aiohttp import AiohttpRequester
+    from async_upnp_client.client_factory import UpnpFactory
+
+    dev = await UpnpFactory(AiohttpRequester(timeout=5), non_strict=False).async_create_device(dlna.location)
+    avt = dev.service("urn:schemas-upnp-org:service:AVTransport:1")
+    r = await avt.action("GetTransportInfo").async_call(InstanceID=0)
+    assert r["CurrentTransportState"] == "NO_MEDIA_PRESENT"
+    rcs = dev.service("urn:schemas-upnp-org:service:RenderingControl:1")
+    assert (await rcs.action("GetVolume").async_call(InstanceID=0, Channel="Master"))["CurrentVolume"] == 0
+
+
+@pytest.mark.asyncio
+async def test_dlna_soap_errors_follow_upnp(dlna):
+    import aiohttp
+
+    async def soap(action: str, args: str) -> str:
+        urn = "urn:schemas-upnp-org:service:AVTransport:1"
+        body = ('<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">'
+                f'<s:Body><u:{action} xmlns:u="{urn}">{args}</u:{action}></s:Body></s:Envelope>')
+        async with aiohttp.ClientSession() as s:
+            async with s.post(f"http://{dlna.host}:{dlna.port}/AVTransport/control", data=body.encode(),
+                              headers={"SOAPAction": f'"{urn}#{action}"', "Content-Type": "text/xml"}) as r:
+                return await r.text()
+
+    assert "<errorCode>401</errorCode>" in await soap("Frobnicate", "<InstanceID>0</InstanceID>")
+    assert "<errorCode>701</errorCode>" in await soap("Seek", "<InstanceID>0</InstanceID><Unit>REL_TIME</Unit>"
+                                                      "<Target>0:00:01</Target>")
+    assert "<errorCode>710</errorCode>" in await soap("Seek", "<InstanceID>0</InstanceID><Unit>TRACK_NR</Unit>"
+                                                      "<Target>1</Target>")
