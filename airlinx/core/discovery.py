@@ -228,6 +228,8 @@ class Discovery:
         ip = get_lan_ip()
         if ip == self.interface_ip:
             return
+        if ip.startswith("127.") and not self.interface_ip.startswith("127."):
+            return      # network dropped: keep the last good address, a fresh lease is picked up by a later scan
         log.info("LAN address changed %s -> %s, rebinding discovery", self.interface_ip, ip)
         old, self.interface_ip = self.interface_ip, ip
         if self.enable_mdns:
