@@ -604,11 +604,20 @@ def load_pins_strict(path: Path) -> dict[str, dict]:
 
 
 def _load_pins(path: Path) -> dict[str, dict]:
+    """Lenient reader for the pin/forget paths. A file that exists but is corrupt is moved to
+    ``known_tvs.json.bak`` (so the next write cannot destroy the pins); entries that are not objects are
+    treated as absent."""
     try:
-        return load_pins_strict(path)
-    except (OSError, ValueError) as e:
+        data = load_pins_strict(path)
+    except ValueError as e:                 # JSON syntax error, bad UTF-8 or a non-object root
+        log.warning("cannot parse %s (%s); moving it to .bak and starting empty", path, e)
+        with contextlib.suppress(OSError):
+            path.replace(path.with_name(path.name + ".bak"))
+        return {}
+    except OSError as e:
         log.warning("cannot read %s (%s); treating as empty", path, e)
         return {}
+    return {k: v for k, v in data.items() if isinstance(v, dict)}
 
 
 def _save_pins(path: Path, pins: dict[str, dict]) -> None:
