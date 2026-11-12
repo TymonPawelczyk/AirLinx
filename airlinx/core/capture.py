@@ -519,6 +519,9 @@ class _FfmpegProc:
             self._err_task.cancel()
             with contextlib.suppress(BaseException):
                 await self._err_task
+        tr = getattr(p, "_transport", None)
+        if tr is not None:
+            tr.close()      # release the pipes now, not from __del__ after the loop is gone
 
 
 class _FailureBudget:
@@ -546,7 +549,7 @@ class EncodedFrame:
 
 
 class VideoCapture:
-    """Restartable x11grab → encoder pipeline."""
+    """x11grab → encoder pipeline: restartable encoder, but single-use object (start() once, stop() is final)."""
 
     def __init__(self, params: VideoParams, on_frame: Callable[[EncodedFrame], None],
                  on_fatal: Callable[[str], None], *, disp: Optional[str] = None):
@@ -727,6 +730,7 @@ class VideoCapture:
         log.warning("video encoder exited unexpectedly (rc=%s): %s", rc, detail)
         self._tasks.pop(proc, None)
         self._active = None
+        await proc.stop()           # reap the dead encoder and close its transport before replacing it
         if self._fails.hit():
             self.on_fatal(f"ffmpeg (wideo) kończy się błędem: {detail or rc}")
             return

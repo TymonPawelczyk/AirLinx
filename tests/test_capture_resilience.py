@@ -205,3 +205,48 @@ def test_ffmpeg_ok_kills_process_on_cancel(monkeypatch, tmp_path):
             await t
     run(main())
     assert not _alive(int(pidfile.read_text()))
+
+
+# --- a crashed encoder is reaped and its transport closed before the replacement takes over ---
+
+def test_video_reader_reaps_crashed_process_before_respawn(monkeypatch):
+    procs = []
+    orig_start = c._FfmpegProc.start
+
+    async def spy_start(self):
+        await orig_start(self)
+        procs.append(self)
+    monkeypatch.setattr(c._FfmpegProc, "start", spy_start)
+    cmds = iter([["sh", "-c", "exit 1"], ["sleep", "30"]])
+    monkeypatch.setattr(c, "build_video_cmd", lambda p, d=None: next(cmds))
+
+    async def main():
+        v = c.VideoCapture(c.VideoParams(**PARAMS), lambda f: None, lambda m: None)
+        await v.start()
+        for _ in range(60):
+            if len(procs) == 2 and v._active is procs[1]:
+                break
+            await asyncio.sleep(0.1)
+        assert len(procs) == 2 and v._active is procs[1]
+        old = procs[0]
+        assert old.proc.returncode is not None
+        assert old._err_task is None or old._err_task.done(), "stderr drain of the dead encoder still running"
+        await v.stop()
+    run(main())
+
+
+def test_ffmpeg_proc_stop_leaves_no_transport_for_del_to_choke_on(monkeypatch):
+    """An unclosed transport makes BaseSubprocessTransport.__del__ raise 'Event loop is closed' once the loop is
+    gone (pytest reports it as PytestUnraisableExceptionWarning)."""
+    import gc
+    import sys
+    bad = []
+    monkeypatch.setattr(sys, "unraisablehook", lambda u: bad.append(u.exc_value))
+
+    async def main():
+        p = c._FfmpegProc(["sleep", "30"], "t")
+        await p.start()
+        await p.stop()
+    run(main())          # asyncio.run closes the loop here
+    gc.collect()
+    assert not bad, bad
