@@ -236,3 +236,29 @@ async def test_rejected_load_error_has_unknown_volume():
     with pytest.raises(AirlinxError):
         await p.load(MediaItem("i1", "/x.mp4", "Film", 100.0, "video"), "http://h:1/f/tok/media.mp4", "video/mp4")
     assert states[-1].state == "error" and states[-1].volume is None
+
+
+@pytest.mark.asyncio
+async def test_dlna_mirror_unregisters_live_before_the_slow_soap_stop():
+    """SOAP Stop can take seconds; a TV re-GET inside that window must already get a 404."""
+    from airlinx.core.media_server import MediaServer
+
+    server = MediaServer(lan_ip="127.0.0.1")
+    await server.start("127.0.0.1", 0)
+    try:
+        async def ts():
+            yield b"\x47" * 188
+
+        seen = {}
+
+        class SpyPlayer(dlna.DlnaPlayer):
+            async def stop(self):
+                seen["lives_during_stop"] = dict(server.lives)
+                await super().stop()
+
+        m = dlna.DlnaMirror(DEV, server, ts(), player=SpyPlayer(DEV, dmr=FakeDmr(), poll_interval=3600))
+        await m.start()
+        await m.stop()
+        assert seen["lives_during_stop"] == {}
+    finally:
+        await server.stop()

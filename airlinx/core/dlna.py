@@ -293,7 +293,9 @@ class DlnaMirror:
         return self.url
 
     async def stop(self) -> None:
+        # Unregister first: SOAP Stop can take seconds and a TV re-GET in that window would
+        # otherwise start a new capture that nothing ends.
+        self.server.unregister_live(self.NAME)
         with contextlib.suppress(Exception):
             await self.player.stop()
         await self.player.close()
-        self.server.unregister_live(self.NAME)

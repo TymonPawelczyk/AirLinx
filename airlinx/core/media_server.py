@@ -171,7 +171,15 @@ class _Live:
         self.name, self.source, self.mime = name, source, mime
         self.queues: set[asyncio.Queue] = set()
         self.task: Optional[asyncio.Task] = None
+        self.clients: set[asyncio.Task] = set()   # request handlers currently streaming this live
         self.ended = False
+
+    def close(self) -> None:
+        """Stop the shared pump and end every client stream (their handlers get cancelled)."""
+        if self.task:
+            self.task.cancel()
+        for t in list(self.clients):
+            t.cancel()
 
     def subscribe(self) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue(maxsize=512)
@@ -239,9 +247,8 @@ class MediaServer:
         for p in list(self._procs):
             with contextlib.suppress(ProcessLookupError):
                 p.kill()
-        for lv in self.lives.values():
-            if lv.task:
-                lv.task.cancel()
+        for lv in list(self.lives.values()):
+            lv.close()
         if self._runner:
             await self._runner.cleanup()
             self._runner = None
@@ -376,8 +383,8 @@ class MediaServer:
     def unregister_live(self, name: str) -> None:
         token = self._live_names.pop(name, None)
         lv = self.lives.pop(token, None) if token else None
-        if lv and lv.task:
-            lv.task.cancel()
+        if lv:
+            lv.close()
 
     # ------------------------------------------------------------ http helpers
     @web.middleware
@@ -502,10 +509,20 @@ class MediaServer:
         await resp.prepare(request)
         if request.method == "HEAD":
             return resp
+        me = asyncio.current_task()
+        if me is not None:
+            lv.clients.add(me)
         try:
             if callable(lv.source):
-                async for chunk in lv.source():
-                    await resp.write(chunk)
+                it = lv.source()
+                try:
+                    async for chunk in it:
+                        await resp.write(chunk)
+                finally:   # a cancelled/disconnected client must not leave its ffmpeg generator running
+                    aclose = getattr(it, "aclose", None)
+                    if aclose is not None:
+                        with contextlib.suppress(Exception):
+                            await asyncio.shield(aclose())
             else:
                 q = lv.subscribe()
                 try:
@@ -518,6 +535,8 @@ class MediaServer:
                     lv.queues.discard(q)
         except (ConnectionResetError, asyncio.CancelledError):
             log.debug("live client left")
+        finally:
+            lv.clients.discard(me)  # type: ignore[arg-type]
         return resp
 
     # ------------------------------------------------------------ ffmpeg

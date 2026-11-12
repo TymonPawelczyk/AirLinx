@@ -375,3 +375,57 @@ async def test_unpublish_clears_caches_and_kills_streams(slow_ffmpeg, blob):
         assert s.info(pub.token) is None
     finally:
         await s.stop()
+
+
+# ----------------------------------------------------------------------------- live: client lifetime
+
+def _endless_factory(state):
+    async def gen():
+        state["started"] = state.get("started", 0) + 1
+        try:
+            while True:
+                await asyncio.sleep(0.01)
+                yield b"x" * 188
+        finally:
+            state["closed"] = state.get("closed", 0) + 1
+    return gen
+
+
+async def _wait_for(pred, timeout=3.0):
+    loop = asyncio.get_running_loop()
+    end = loop.time() + timeout
+    while loop.time() < end:
+        if pred():
+            return True
+        await asyncio.sleep(0.02)
+    return pred()
+
+
+@pytest.mark.asyncio
+async def test_unregister_live_ends_running_client_and_closes_its_iterator(server):
+    state: dict = {}
+    url = server.register_live("m", _endless_factory(state))
+    r = await server.sess.get(url)
+    await r.content.readexactly(188)
+    server.unregister_live("m")
+    # the client stream must end (EOF) instead of running until the TV disconnects
+    async def drain():
+        while await r.content.read(65536):
+            pass
+    await asyncio.wait_for(drain(), 3)
+    assert await _wait_for(lambda: state.get("closed") == 1), state
+    r.release()
+
+
+@pytest.mark.asyncio
+async def test_server_stop_closes_live_client_iterators():
+    s = ms.MediaServer(lan_ip="127.0.0.1")
+    await s.start(host="127.0.0.1", port=0)
+    state: dict = {}
+    url = s.register_live("m", _endless_factory(state))
+    async with aiohttp.ClientSession() as sess:
+        r = await sess.get(url)
+        await r.content.readexactly(188)
+        await s.stop()
+        assert state.get("closed") == 1, state
+        r.release()
