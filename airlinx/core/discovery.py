@@ -35,6 +35,12 @@ SSDP_MISSES_OFFLINE = 2          # consecutive scans without an SSDP reply → d
 CAST_CAPS = {"cast_mirror", "cast_media"}
 SAMSUNG_DMR_PORTS = (9197,)
 MAX_DESCRIPTION_BYTES = 256 * 1024
+SSDP_FETCH_CONCURRENCY = 8       # parallel description downloads per scan
+SSDP_SCAN_DEADLINE = 8.0         # hard cap (s) for all description downloads of one scan
+SSDP_FETCH_TIMEOUT = 2.5         # per description attempt (s)
+SSDP_MAX_LOCATIONS_PER_HOST = 3  # distinct LOCATIONs tried per sender IP, in arrival order
+SSDP_MAX_HOSTS = 64              # replies are untrusted: look at no more than this many distinct senders
+SSDP_MAX_DATAGRAMS = 4096        # and keep no more than this many datagrams in memory
 
 
 # ------------------------------------------------------------------ parsing helpers
@@ -111,6 +117,20 @@ def parse_cast_txt(props: dict) -> dict:
     return {"id": g("id"), "name": g("fn"), "model": g("md"), "ca": g("ca"), "st": g("st")}
 
 
+def usable_host(addr) -> bool:
+    """A real unicast host address: not loopback, link-local, multicast, unspecified or reserved."""
+    return not (addr.is_loopback or addr.is_link_local or addr.is_multicast or addr.is_unspecified
+                or addr.is_reserved)
+
+
+def usable_ipv4(text: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return addr.version == 4 and usable_host(addr)
+
+
 def valid_location(location: str, sender_ip: str) -> bool:
     """Accept an SSDP LOCATION only if it points back at the datagram's sender over http(s),
     and that address is a real unicast LAN/WAN host (no loopback / link-local / multicast)."""
@@ -125,8 +145,7 @@ def valid_location(location: str, sender_ip: str) -> bool:
         return False
     if host != sender:
         return False
-    return not (host.is_loopback or host.is_link_local or host.is_multicast or host.is_unspecified
-                or host.is_reserved)
+    return usable_host(host)
 
 
 def normalize_udn(udn: str) -> str:
@@ -151,6 +170,8 @@ class Discovery:
                  rescan_interval: float = RESCAN_INTERVAL, enable_mdns: bool = True):
         self.on_change = on_change
         self.interface_ip = interface_ip
+        self._explicit_ip = interface_ip is not None   # an address given by the caller is never auto-replaced
+        self._started = False
         self.rescan_interval = rescan_interval
         self.enable_mdns = enable_mdns
         self._entries: dict[str, _Entry] = {}   # keyed by IP
@@ -173,6 +194,7 @@ class Discovery:
         self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4))
         if self.enable_mdns:
             await self._start_mdns()
+        self._started = True
         self._task = asyncio.ensure_future(self._loop())
 
     async def stop(self) -> None:
@@ -182,18 +204,45 @@ class Discovery:
                 await self._task
         for t in list(self._bg):
             t.cancel()
+        await self._stop_mdns()
+        if self._session:
+            await self._session.close()
+        self._session = None
+        self._started = False
+
+    async def _stop_mdns(self) -> None:
         if self._browser:
             with contextlib.suppress(Exception):
                 await self._browser.async_cancel()
         if self._azc:
             with contextlib.suppress(Exception):
                 await self._azc.async_close()
-        if self._session:
-            await self._session.close()
-        self._browser = self._azc = self._session = None
+        self._browser = self._azc = None
+
+    async def _refresh_interface(self) -> None:
+        """Autostart can run before the network is up (get_lan_ip() == 127.0.0.1) and DHCP can move us later:
+        re-derive the address on every scan and, when it changed, rebind SSDP (it reads self.interface_ip per scan)
+        and restart mDNS (zeroconf is bound to one interface)."""
+        if self._explicit_ip or not self._started:
+            return
+        ip = get_lan_ip()
+        if ip == self.interface_ip:
+            return
+        if ip.startswith("127.") and not self.interface_ip.startswith("127."):
+            return      # network dropped: keep the last good address, a fresh lease is picked up by a later scan
+        log.info("LAN address changed %s -> %s, rebinding discovery", self.interface_ip, ip)
+        old, self.interface_ip = self.interface_ip, ip
+        if self.enable_mdns:
+            await self._stop_mdns()
+            try:
+                await self._start_mdns()
+            except Exception:
+                self.interface_ip = old        # mDNS is down now: keep the mismatch so the next scan retries
+                raise
 
     async def rescan(self) -> None:
         async with self._scan_lock:
+            await self._refresh_interface()
             await self._ssdp_scan()
             for ip, e in list(self._entries.items()):
                 if e.manual and not e.device.online:
@@ -241,8 +290,10 @@ class Discovery:
         if not await info.async_request(self._azc.zeroconf, 3000):
             log.debug("could not resolve %s", name)
             return
-        addrs = [a for a in info.parsed_addresses() if ":" not in a]
+        # mDNS replies are unauthenticated: same address filters as for an SSDP LOCATION
+        addrs = [a for a in info.parsed_addresses() if usable_ipv4(a)]
         if not addrs:
+            log.debug("ignoring %s: no usable address in %s", name, info.parsed_addresses())
             return
         txt = parse_cast_txt(info.properties or {})
         self.upsert_cast(addrs[0], info.port or 8009, txt, zc_name=name)
@@ -251,7 +302,7 @@ class Discovery:
         for e in self._entries.values():
             if name in e.zc_names:
                 e.zc_names.discard(name)
-                e.cast_alive = False
+                e.cast_alive = bool(e.zc_names)     # another announced service may still be alive
                 self._update_online(e)
         self._notify()
 
@@ -265,6 +316,11 @@ class Discovery:
 
     def upsert_cast(self, ip: str, port: int, txt: dict, zc_name: Optional[str] = None) -> Device:
         e = self._entry(ip)
+        if zc_name and e.cast_alive and e.zc_names and zc_name not in e.zc_names:
+            # Another, still live service already owns this address: an unauthenticated announcement must not
+            # rewrite its port/id/name (nor, by going away, take it offline).
+            log.debug("ignoring %s: %s is already served by %s", zc_name, ip, sorted(e.zc_names))
+            return e.device
         d = e.device
         if txt.get("id"):
             d.id = txt["id"].replace("-", "").lower()
@@ -320,6 +376,8 @@ class Discovery:
 
         class Proto(asyncio.DatagramProtocol):
             def datagram_received(self, data, addr):
+                if len(responses) >= SSDP_MAX_DATAGRAMS:
+                    return
                 h = parse_ssdp_response(data)
                 if h:
                     h["_addr"] = addr[0]
@@ -342,8 +400,11 @@ class Discovery:
         finally:
             transport.close()
 
-        seen_ips = set()
-        by_loc = {}
+        # Candidates per sender IP: a few distinct LOCATIONs (a hostile or broken first reply must not displace
+        # the real one), tried in order until one yields a description. Known devices are planned first so a flood
+        # of hosts cannot push them past the host limit.
+        cands: dict[str, list[dict]] = {}
+        responded: set[str] = set()
         for h in responses:
             st = h.get("st", "") or h.get("nt", "")
             if "MediaRenderer" not in st:
@@ -351,24 +412,48 @@ class Discovery:
             if not valid_location(h["location"], h["_addr"]):
                 log.debug("ignoring SSDP LOCATION %s from %s", redact_url(h["location"]), h["_addr"])
                 continue
-            by_loc[h["location"]] = h
-        for loc, h in by_loc.items():
-            ip = h["_addr"]
-            if ip in seen_ips:
-                continue
-            desc = await self._fetch_description(loc)
-            if desc is None:
-                continue
-            seen_ips.add(ip)
-            self.upsert_dlna(ip, loc, desc)
+            responded.add(h["_addr"])
+            lst = cands.setdefault(h["_addr"], [])
+            if len(lst) < SSDP_MAX_LOCATIONS_PER_HOST and all(x["location"] != h["location"] for x in lst):
+                lst.append(h)
+        order = sorted(cands, key=lambda ip: ip not in self._entries)          # stable: known first
+        chosen = {ip: cands[ip] for ip in order[:SSDP_MAX_HOSTS]}
+        await self._fetch_all(chosen)
         if target is None:
             for ip, e in self._entries.items():
-                if "dlna" in e.device.caps and ip not in seen_ips:
+                # a miss means the host sent no SSDP reply at all; a reply whose description was slow, abandoned
+                # at the deadline or beyond the host limit says nothing about the device being gone
+                if "dlna" in e.device.caps and ip not in responded:
                     e.dlna_misses += 1
                     if e.dlna_misses >= SSDP_MISSES_OFFLINE:
                         e.dlna_alive = False
                         self._update_online(e)
-        return list(by_loc.values())
+        return [h for lst in chosen.values() for h in lst]
+
+    async def _fetch_all(self, chosen: dict[str, list[dict]]) -> None:
+        """Download descriptions in parallel (bounded), under one overall deadline, and upsert those that
+        arrive. Per host the candidate LOCATIONs are tried in order until one parses."""
+        sem = asyncio.Semaphore(SSDP_FETCH_CONCURRENCY)
+
+        async def one(ip: str, hs: list[dict]) -> None:
+            for h in hs:
+                async with sem:
+                    try:
+                        desc = await asyncio.wait_for(self._fetch_description(h["location"]), SSDP_FETCH_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        desc = None
+                if desc is not None:
+                    self.upsert_dlna(ip, h["location"], desc)
+                    return
+
+        tasks = [asyncio.ensure_future(one(ip, hs)) for ip, hs in chosen.items()]
+        if tasks:
+            _, pending = await asyncio.wait(tasks, timeout=SSDP_SCAN_DEADLINE)
+            for t in pending:
+                t.cancel()
+            if pending:
+                log.debug("SSDP scan deadline: %d host(s) abandoned", len(pending))
+                await asyncio.gather(*pending, return_exceptions=True)
 
     async def _fetch_description(self, location: str) -> Optional[dict]:
         try:
