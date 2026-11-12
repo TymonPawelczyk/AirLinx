@@ -450,9 +450,10 @@ class Controller:
         self.queue: list[MediaItem] = []
         self.playback = PlaybackState(state="idle", volume=float(settings.get("media.volume", 1.0)))
         self.media_protocol: Optional[str] = None
-        # device id the user allowed to receive media over unverified DLNA (cast_unverified dialog); lives for
-        # the playback session only: never persisted, cleared by media.stop, device change, shutdown
-        self._media_dlna_consent: Optional[str] = None
+        # (id, ip, dlna_location) of the endpoint the user allowed to receive media over unverified DLNA
+        # (cast_unverified dialog). Lives as long as the player: never persisted; cleared whenever the player
+        # is stopped or fails, the device or its endpoint changes, the protocol setting changes, on shutdown
+        self._media_dlna_consent: Optional[tuple] = None
         self.encoder: Optional[str] = None      # "h264_nvenc" | "libx264" | "" (none) | None (not probed yet)
         self.hevc_encoder: Optional[str] = None  # "hevc_nvenc" | "libx265" | "" (none) | None (not probed yet)
         self._encoder_task: Optional[asyncio.Task] = None
@@ -679,6 +680,7 @@ class Controller:
     # ------------------------------------------------------------------ devices
     def _on_devices(self, devices: list[Device]) -> None:
         self.devices = list(devices)
+        self._consent_valid()                      # drops the consent when the endpoint changed / is ambiguous
         if devices:
             self.discovering = False
         ids = {d.id for d in self.devices}
@@ -690,6 +692,22 @@ class Controller:
                 self.selected_device_id = self.devices[0].id
         self.emit("devices", list(self.devices))
         self.emit_state()
+
+    @staticmethod
+    def _endpoint(dev: Device) -> tuple:
+        return (dev.id, dev.ip, dev.dlna_location)
+
+    def _consent_valid(self) -> bool:
+        """The remembered consent still names the one device the user saw, at the same endpoint, in auto mode."""
+        c = self._media_dlna_consent
+        if c is None:
+            return False
+        same = [d for d in self.devices if d.id == c[0]]
+        ok = (len(same) == 1 and self._endpoint(same[0]) == c and self.selected_device_id == c[0]
+              and self.settings.get("protocol", "auto") == "auto")
+        if not ok:
+            self._media_dlna_consent = None
+        return ok
 
     def device(self) -> Device:
         dev = next((d for d in self.devices if d.id == self.selected_device_id), None)
@@ -736,7 +754,7 @@ class Controller:
     async def devices_select(self, id: str) -> AppState:
         if all(d.id != id for d in self.devices):
             raise TvNotFoundError()
-        if self._media_dlna_consent not in (None, id):
+        if self._media_dlna_consent is not None and self._media_dlna_consent[0] != id:
             self._media_dlna_consent = None
         self.selected_device_id = id
         self._selection_explicit = True
@@ -1208,6 +1226,7 @@ class Controller:
                 self.mode = "idle" if self.mode == "media" else self.mode
                 self.emit_state()
         elif st.state == "error":
+            self._media_dlna_consent = None
             self.error("playback_failed", st.error or "Odtwarzanie nie powiodło się.")
 
     async def _auto_advance(self) -> None:
@@ -1263,6 +1282,7 @@ class Controller:
                 log.debug("unpublish failed: %s", e)
 
     async def _stop_player(self) -> None:
+        self._media_dlna_consent = None              # the consent lives as long as the player
         self._unpublish()
         player, self._player = self._player, None
         self._player_key = None
@@ -1290,10 +1310,10 @@ class Controller:
                          protocol: Optional[str] = None) -> dict:
         await self._cancel_start()   # a pending mirror start would fall back to DLNA and fight the film
         dev = self.device()
-        if protocol == "dlna":
-            self._media_dlna_consent = dev.id            # explicit choice (the dialog's retry): remember it
-        elif protocol is None and self._media_dlna_consent == dev.id:
+        consented = protocol is None and self._consent_valid() and self._media_dlna_consent == self._endpoint(dev)
+        if consented:
             protocol = "dlna"                            # next / prev / auto-advance / subtitle reload
+        remember = consented or (protocol == "dlna" and self.settings.get("protocol", "auto") == "auto")
         protocols = self._protocols(dev, "media", protocol)
         if self._dlna_needs_consent(dev, protocols, protocol):
             params: dict[str, Any] = {"id": item.id}
@@ -1319,6 +1339,8 @@ class Controller:
                 extra = self._load_extras(server, player, item, url, proto)
                 await _call_maybe_force(player.load, item, url, mime, start, force=force, **extra)
                 await player.play()
+                if remember and proto == "dlna":         # set only now: _get_player may have stopped an old player
+                    self._media_dlna_consent = self._endpoint(dev)
                 return {"ok": True, "protocol": proto, "itemId": item.id}
             except TvBusyError as e:
                 await self._stop_player()
@@ -1477,6 +1499,8 @@ class Controller:
 
     async def settings_set(self, patch: dict) -> dict:
         before = self.settings.get("autostart")
+        if "protocol" in patch:
+            self._media_dlna_consent = None
         data = self.settings.update(patch)
         if "mirror" in patch or "audio" in patch:
             old = self.mirror.options
