@@ -51,6 +51,13 @@ AirLinx (MirrorSession, CastMediaPlayer, DlnaPlayer, MediaServer, Discovery)
   broadcast, the reply carrying the LOAD's `requestId` is MEDIA_STATUS (or LOAD_FAILED) once the URL was fetched.
   For LAUNCH of CC1AD845 the first reply must be RECEIVER_STATUS (pychromecast drops its callback otherwise).
 
+### DLNA failure injection
+
+`DlnaRenderer(failure=..., failure_action="Play", drop_after_bytes=20000)` (library use, used by
+`tests/virtual_tv/test_media.py`): `reject_714` / `reject_716` answer SetAVTransportURI with that UPnP fault,
+`drop_soap` closes the connection and `no_response` never answers the `failure_action` call, `drop_fetch` aborts the
+media download after `drop_after_bytes` (the TV goes to STOPPED). Not exposed in the CLI.
+
 ### Video codecs
 
 The receiver accepts `h264` and `hevc` in an OFFER (the S85F advertises `hevc` in its `mediaCaps`), answers for the first

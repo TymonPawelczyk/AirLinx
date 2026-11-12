@@ -260,7 +260,7 @@ Albo z menu aplikacji: „AirLinx”.
 Ustawienia zostają w `~/.config/airlinx`.
 
 **Mikrocopy pod blokami:**
-Instalator pobiera biblioteki Pythona z PyPI (pychromecast, zeroconf, aiohttp, async-upnp-client, cryptography, protobuf), więc przy instalacji potrzebny jest internet. Jeśli `~/.local/bin` nie jest w `PATH`, instalator o tym powie.
+Instalator pobiera biblioteki Pythona z PyPI (zeroconf, aiohttp, async-upnp-client, cryptography), więc przy instalacji potrzebny jest internet. Jeśli `~/.local/bin` nie jest w `PATH`, instalator o tym powie.
 
 **Adnotacja:** nagłówek mówi „trzy polecenia”, bo blok 2 to trzy polecenia; pakiety apt są osobnym krokiem przygotowawczym. Jeśli to razi, alternatywa: „Instalacja”.
 
