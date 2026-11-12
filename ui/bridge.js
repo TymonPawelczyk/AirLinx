@@ -160,7 +160,7 @@
     mirror: { state: 'idle', detail: null, device_id: null, source_id: null, protocol: null,
               options: clone(DEFAULT_OPTS), stats: null, started_at: null, audio: null },
     queue: [], playback: { state: 'idle', position: 0, duration: null, volume: 0.8, muted: false, item_id: null, error: null },
-    media_protocol: null, settings, version: '0.1.0',
+    media_protocol: null, settings, version: '0.1.1',
     encoder: flags.has('cpu') ? 'libx264' : 'h264_nvenc',   // controller: capture.probe_encoders()
     hevc_encoder: flags.has('nohevc') ? '' : flags.has('cpu') ? 'libx265' : 'hevc_nvenc',   // ...and its H.265 part
     wayland: flags.has('wayland'),                          // controller: sources.is_wayland_session()

@@ -6,9 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-13
+
 ### Added
 
 - H.265 (HEVC) for Cast screen mirroring, chosen in Settings > Obraz > Kodek (Auto, H.264, H.265). The default stays H.264 until H.265 is confirmed on a real TV. H.265 is encoded with NVENC (libx265 on the CPU as a fallback) and offered only when the TV lists it. If the TV rejects it, never acknowledges the stream, or the encoder fails, AirLinx switches to H.264 in the same session.
+- Virtual TV (`tools/virtual_tv`): a local Cast and DLNA receiver for end-to-end tests without a TV, with an isolated network namespace, DLNA failure injection and opt-in tests (`pytest -m vtv`).
+- `scripts/perf_latency.py`, a latency sweep tool for a real TV, and first measurements in `docs/perf/`.
+- `scripts/smoke_mirror.py --window` to share a single window and watch the session end when it closes.
+
+### Changed
+
+- Cast media playback now runs over AirLinx's own authenticated CASTv2 channel instead of pychromecast, so the TV identity check also covers file playback. `pychromecast` and `protobuf` are no longer dependencies.
+- File and live stream URLs are bound to the receiver's IP address and expire after a sliding idle period.
+- The UI no longer repaints expensive CSS effects under live statistics in WebKitGTK.
+
+### Fixed
+
+- Discovery re-derives the LAN address on every rescan and rebinds SSDP and mDNS, keeps the last good address when only loopback is available, bounds the SSDP scan, filters mDNS addresses, tries several LOCATIONs per host, and no longer marks a TV offline because of one slow description fetch.
+- DLNA: live mirror clients are closed on stop, each mirror session uses a unique live stream name, and seeking is relative to the `?t=` start offset.
+- The media server answers a malformed `Range` with 416 and a bad `?t=` with 400 instead of HTTP 500.
+- Capture: encoder capabilities are published atomically, a probe ffmpeg is killed on timeout or cancel, a crashed ffmpeg is reaped before respawn, and capture objects are single-use.
+- A corrupt `known_tvs.json` is backed up and its pins are kept until "trust again"; invalid pin entries are ignored.
+- Settings values are validated (ranges, enums and kinds), and a damaged audio-routing state file no longer breaks cleanup after a crash.
+- Consent to DLNA without Cast verification is remembered for the playback session and bound to the endpoint, the player and the automatic protocol setting.
+- The tray shows media playback instead of a stale mirroring error.
+- Menus and dialogs get focus with reduced motion enabled.
+- The installer and the test suite require `cryptography>=39`.
 
 ## [0.1.0] - 2026-11-10
 
@@ -52,5 +76,6 @@ First public release.
 - Latency of DLNA mirroring and of the libx264 encoder has not been measured. There is no VAAPI encoder for AMD and Intel GPUs.
 - Image-based subtitles (PGS, DVB) are not supported.
 
-[Unreleased]: https://github.com/TymonPawelczyk/AirLinx/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/TymonPawelczyk/AirLinx/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/TymonPawelczyk/AirLinx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/TymonPawelczyk/AirLinx/releases/tag/v0.1.0

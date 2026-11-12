@@ -349,7 +349,7 @@ def test_settings_show_version_from_backend(new_tab, ui_url):
     tab = open_ui(new_tab, ui_url)
     to_work(tab)
     open_settings(tab)
-    expect(tab.page.locator("#app-version")).to_have_text("AirLinx 0.1.0")
+    expect(tab.page.locator("#app-version")).to_have_text("AirLinx 0.1.1")
 
 
 @pytest.mark.parametrize("query, label", [("", "NVENC, wybierany automatycznie"),

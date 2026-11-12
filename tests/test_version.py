@@ -9,7 +9,7 @@ from airlinx.core.models import AppState
 
 
 def test_package_version_is_the_release():
-    assert airlinx.__version__ == "0.1.0"
+    assert airlinx.__version__ == "0.1.1"
     assert re.fullmatch(r"\d+\.\d+\.\d+", airlinx.__version__)
 
 
