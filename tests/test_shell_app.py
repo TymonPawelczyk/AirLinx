@@ -22,6 +22,11 @@ def test_tray_summary_states():
     st.queue = [MediaItem("i", "/a.mp4", "Wydmy", 10, "video")]
     st.playback = PlaybackState("playing", item_id="i")
     assert app.tray_summary(st)["status"] == "Odtwarzam: Wydmy"
+    # a stale mirror error must not paint the tray red while a film is playing
+    st.mirror = MirrorStatus(state="error")
+    s = app.tray_summary(st)
+    assert s["status"] == "Odtwarzam: Wydmy" and s["icon"] == "streaming"
+    st.mirror = MirrorStatus()
     assert app.tray_summary(AppState(discovering=True))["status"] == "Szukam telewizora…"
     assert app.tray_summary(AppState())["can_mirror"] is False
 

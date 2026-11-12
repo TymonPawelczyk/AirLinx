@@ -64,12 +64,12 @@ def tray_summary(st: AppState) -> dict[str, Any]:
         status, icon = f"Łączę z {tv or 'telewizorem'}…", "streaming"
     elif m == "reconnecting":
         status, icon = "Odzyskuję połączenie…", "streaming"
-    elif m == "error":
-        status, icon = "Udostępnianie przerwane", "error"
     elif st.mode == "media" and st.playback.state in ("playing", "buffering", "loading", "paused"):
         item = next((q for q in st.queue if q.id == st.playback.item_id), None)
         verb = "Pauza" if st.playback.state == "paused" else "Odtwarzam"
         status, icon = f"{verb}: {item.title if item else 'multimedia'}", "streaming"
+    elif m == "error":
+        status, icon = "Udostępnianie przerwane", "error"
     elif tv:
         status = f"Gotowe · {tv}" + ("" if dev and dev.online else " (offline)")
     elif st.discovering:
