@@ -80,17 +80,12 @@ AirLinx does not bundle these packages. `install.sh` downloads them from PyPI in
 | **async-upnp-client** | 0.48.2 | Apache-2.0 | https://github.com/StevenLooman/async_upnp_client |
 | **cryptography** | 50.0.2 | Apache-2.0 OR BSD-3-Clause | https://github.com/pyca/cryptography |
 | **defusedxml** (imported directly, also via async-upnp-client) | 0.7.1 | PSF-2.0 | https://github.com/tiran/defusedxml |
-| **protobuf** | 7.36.2 | BSD-3-Clause | https://github.com/protocolbuffers/protobuf |
-| **PyChromecast** | 13.1.0 | MIT | https://github.com/balloob/pychromecast |
 | **zeroconf** | 0.152.1 | LGPL-2.1-or-later | https://github.com/python-zeroconf/python-zeroconf |
 | aiohappyeyeballs | 2.7.1 | PSF-2.0 | https://github.com/aio-libs/aiohappyeyeballs |
 | aiosignal | 1.4.0 | Apache-2.0 | https://github.com/aio-libs/aiosignal |
 | async-timeout | 5.0.1 | Apache-2.0 | https://github.com/aio-libs/async-timeout |
 | attrs | 26.1.0 | MIT | https://github.com/python-attrs/attrs |
-| casttube | 0.2.1 | MIT | https://github.com/ur1katz/casttube |
-| certifi | 2026.10.23 | MPL-2.0 | https://github.com/certifi/python-certifi |
 | cffi | 2.1.1 | MIT-0 | https://github.com/python-cffi/cffi |
-| charset-normalizer | 3.5.2 | MIT | https://github.com/jawah/charset_normalizer |
 | frozenlist | 1.8.0 | Apache-2.0 | https://github.com/aio-libs/frozenlist |
 | idna | 3.20 | BSD-3-Clause | https://github.com/kjd/idna |
 | ifaddr | 0.2.0 | MIT | https://github.com/pydron/ifaddr |
@@ -98,15 +93,13 @@ AirLinx does not bundle these packages. `install.sh` downloads them from PyPI in
 | propcache | 0.5.4 | Apache-2.0 | https://github.com/aio-libs/propcache |
 | pycparser | 3.11 | BSD-3-Clause | https://github.com/eliben/pycparser |
 | python-didl-lite | 1.5.1 | Apache-2.0 | https://github.com/StevenLooman/python-didl-lite |
-| requests | 2.34.2 | Apache-2.0 | https://github.com/psf/requests |
 | typing-extensions | 4.16.0 | PSF-2.0 | https://github.com/python/typing_extensions |
-| urllib3 | 2.8.0 | MIT | https://github.com/urllib3/urllib3 |
 | voluptuous | 0.16.0 | BSD-3-Clause | https://github.com/alecthomas/voluptuous |
 | yarl | 1.25.1 | Apache-2.0 | https://github.com/aio-libs/yarl |
 
 Notes:
 
-- `casttube`, `requests` and their dependencies come in through `pychromecast`. The unused `samsungtvws` (LGPL-3.0) and its dependency `websocket-client` were dropped from `install.sh` in 0.1.0.
+- `pychromecast` (with `casttube`, `requests`, `protobuf` and their dependencies) was dropped from `install.sh` when Cast media playback moved onto AirLinx's own verified CASTv2 channel. The unused `samsungtvws` (LGPL-3.0) and its dependency `websocket-client` were dropped from `install.sh` in 0.1.0.
 - Development and test tools in the project environment (pytest, pytest-asyncio, pytest-cov, coverage, playwright, aiortc, av and others) are not runtime dependencies and are not listed.
 - Each package's full license text ships with the package (`*.dist-info/` in the virtual environment, usually `licenses/` or `LICENSE*`).
 
