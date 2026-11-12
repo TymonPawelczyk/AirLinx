@@ -603,6 +603,19 @@ def load_pins_strict(path: Path) -> dict[str, dict]:
     return data
 
 
+def _bak_path(path: Path) -> Path:
+    return path.with_name(path.name + ".bak")
+
+
+def load_pins_guarded(path: Path) -> dict[str, dict]:
+    """Pins for the downgrade guard: the live file plus ``known_tvs.json.bak`` (a corrupt file that
+    _load_pins moved aside still counts, until forget_tv_cert clears it). Raises OSError / ValueError when
+    either file exists but cannot be read, so callers fail closed."""
+    pins = dict(load_pins_strict(_bak_path(path)))
+    pins.update(load_pins_strict(path))
+    return pins
+
+
 def _load_pins(path: Path) -> dict[str, dict]:
     """Lenient reader for the pin/forget paths. A file that exists but is corrupt is moved to
     ``known_tvs.json.bak`` (so the next write cannot destroy the pins); entries that are not objects are
@@ -710,11 +723,31 @@ def check_cert_pin(key: str, fingerprint: str) -> bool:
 def forget_tv_cert(device_id: str) -> bool:
     """Drop the pinned identity (e.g. after the TV was replaced). True if something was removed."""
     path = known_tvs_path()
+    bak = _bak_path(path)
+    had_bak = bak.exists()          # a copy made by _load_pins below is evidence for the user: keep it
     pins = _load_pins(path)
-    if pins.pop(device_id, None) is None:
-        return False
-    _save_pins(path, pins)
-    return True
+    removed = pins.pop(device_id, None) is not None
+    if removed:
+        _save_pins(path, pins)
+    try:  # the user explicitly trusts again: lift the pin held by the moved-aside file too
+        old = load_pins_strict(bak)
+    except FileNotFoundError:
+        return removed
+    except (OSError, ValueError):
+        if had_bak and bak.is_file():   # an older unreadable copy: nothing in it can be honoured, drop it
+            with contextlib.suppress(OSError):
+                bak.unlink()
+            return True
+        return removed
+    if device_id in old:
+        del old[device_id]
+        with contextlib.suppress(OSError):
+            if old:
+                _save_pins(bak, old)
+            else:
+                bak.unlink()
+        removed = True
+    return removed
 
 
 # --------------------------------------------------------------------------------------

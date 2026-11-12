@@ -547,3 +547,29 @@ def test_load_pins_strict_still_raises_and_keeps_the_file(isolated_pins):
     with pytest.raises(ValueError):
         cv.load_pins_strict(isolated_pins)
     assert isolated_pins.read_text("utf-8") == "{broken"
+
+
+def test_guarded_loader_merges_the_bak_and_fails_closed_on_an_unreadable_one(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    bak = isolated_pins.with_name("known_tvs.json.bak")
+    bak.write_text(json.dumps({"a": {"auth": "tofu"}, "b": {"auth": "tofu"}}))
+    isolated_pins.write_text(json.dumps({"b": {"auth": "device"}}))
+    pins = cv.load_pins_guarded(isolated_pins)
+    assert set(pins) == {"a", "b"} and pins["b"]["auth"] == "device"
+    bak.write_text("{broken")
+    with pytest.raises(ValueError):
+        cv.load_pins_guarded(isolated_pins)
+
+
+def test_forget_does_not_discard_a_bak_it_just_created(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    isolated_pins.write_text("{broken")
+    cv.forget_tv_cert("tv")
+    assert isolated_pins.with_name("known_tvs.json.bak").read_text("utf-8") == "{broken"
+
+
+def test_forget_discards_an_older_unreadable_bak(isolated_pins):
+    isolated_pins.parent.mkdir(parents=True)
+    bak = isolated_pins.with_name("known_tvs.json.bak")
+    bak.write_text("{broken")
+    assert cv.forget_tv_cert("tv") is True and not bak.exists()
