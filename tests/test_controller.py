@@ -1550,7 +1550,7 @@ def _unverified_media_env(tmp_path, known_tvs, n=3):
 
     _pin(known_tvs)
     env = Env(tmp_path)
-    env.player_fail["cast"] = TvNotFoundError("192.168.1.10:8009: refused")
+    env.player_fail["cast"] = TvNotFoundError("192.0.2.10:8009: refused")
     return env, _media_files(tmp_path, n)
 
 
@@ -1560,7 +1560,7 @@ def _errors(env, code="cast_unverified"):
 
 async def _consent_first_item(env, files):
     await env.ctl.start()
-    await env.ctl.devices_select("cast-gogus")
+    await env.ctl.devices_select("cast-salon")
     items = await env.ctl.media_add(paths=files)
     assert (await env.ctl.media_play(items[0].id))["code"] == "cast_unverified"
     err = _errors(env)[-1]
@@ -1629,7 +1629,7 @@ def test_changing_the_device_forgets_the_consent(tmp_path, known_tvs):
     async def go():
         items = await _consent_first_item(env, files)
         await env.ctl.devices_select("cast-syp")
-        await env.ctl.devices_select("cast-gogus")
+        await env.ctl.devices_select("cast-salon")
         res = await env.ctl.media_play(items[1].id)
         assert res["code"] == "cast_unverified" and len(_errors(env)) == 2
 
@@ -1641,7 +1641,7 @@ def test_selecting_the_same_device_again_keeps_the_consent(tmp_path, known_tvs):
 
     async def go():
         items = await _consent_first_item(env, files)
-        await env.ctl.devices_select("cast-gogus")
+        await env.ctl.devices_select("cast-salon")
         assert (await env.ctl.media_play(items[1].id))["protocol"] == "dlna"
         assert len(_errors(env)) == 1
 
@@ -1685,7 +1685,7 @@ def test_mirror_consent_applies_to_that_start_only(tmp_path, known_tvs):
 
     async def go():
         await env.ctl.start()
-        await env.ctl.devices_select("cast-gogus")
+        await env.ctl.devices_select("cast-salon")
         assert (await env.ctl.mirror_start("monitor:DP-4"))["code"] == "cast_unverified"
         err = _errors(env)[-1]
         assert (await env.ctl.dispatch(err["retry"]["method"], err["retry"]["params"]))["protocol"] == "dlna"
@@ -1707,8 +1707,8 @@ async def _asks_again(env, item):
 
 
 @pytest.mark.parametrize("change", [
-    {"ip": "192.168.1.66"},                                   # the id now points at another host
-    {"dlna_location": "http://192.168.1.10:1234/other"},      # same host, other DLNA endpoint
+    {"ip": "192.0.2.66"},                                   # the id now points at another host
+    {"dlna_location": "http://192.0.2.10:1234/other"},      # same host, other DLNA endpoint
     {"dlna_location": None},
 ])
 def test_consent_is_dropped_when_the_endpoint_of_the_device_changes(tmp_path, known_tvs, change):
@@ -1716,9 +1716,9 @@ def test_consent_is_dropped_when_the_endpoint_of_the_device_changes(tmp_path, kn
 
     async def go():
         items = await _consent_first_item(env, files)
-        env.ctl._on_devices([_replace(GOGUS, **change), SYPIALNIA])
+        env.ctl._on_devices([_replace(SALON, **change), SYPIALNIA])
         assert env.ctl._media_dlna_consent is None
-        env.ctl._on_devices([GOGUS, SYPIALNIA])               # even when it changes back
+        env.ctl._on_devices([SALON, SYPIALNIA])               # even when it changes back
         assert await _asks_again(env, items[1])
 
     run(go())
@@ -1729,14 +1729,14 @@ def test_consent_is_dropped_on_duplicate_ids_and_when_the_device_vanishes(tmp_pa
 
     async def go():
         await _consent_first_item(env, files)
-        env.ctl._on_devices([GOGUS, _replace(GOGUS, ip="192.168.1.99"), SYPIALNIA])
+        env.ctl._on_devices([SALON, _replace(SALON, ip="192.0.2.99"), SYPIALNIA])
         assert env.ctl._media_dlna_consent is None
         await _consent_first_item_again(env)
         env.ctl._on_devices([SYPIALNIA])
         assert env.ctl._media_dlna_consent is None
 
     async def _consent_first_item_again(env):
-        env.ctl._on_devices([GOGUS, SYPIALNIA])
+        env.ctl._on_devices([SALON, SYPIALNIA])
         item = env.ctl.queue[0]
         assert (await env.ctl.media_play(item.id))["code"] == "cast_unverified"
         err = _errors(env)[-1]
@@ -1751,7 +1751,7 @@ def test_stale_consent_is_not_used_even_if_the_handler_was_bypassed(tmp_path, kn
 
     async def go():
         items = await _consent_first_item(env, files)
-        env.ctl.devices = [_replace(GOGUS, ip="192.168.1.66"), SYPIALNIA]     # no _on_devices call
+        env.ctl.devices = [_replace(SALON, ip="192.0.2.66"), SYPIALNIA]     # no _on_devices call
         assert await _asks_again(env, items[1])
 
     run(go())
@@ -1843,7 +1843,7 @@ def test_consent_is_not_recorded_when_the_setting_is_not_auto(tmp_path, known_tv
 
     async def go():
         await env.ctl.start()
-        await env.ctl.devices_select("cast-gogus")
+        await env.ctl.devices_select("cast-salon")
         env.ctl.settings.set("protocol", "dlna", save=False)
         items = await env.ctl.media_add(paths=files)
         assert (await env.ctl.media_play(items[0].id, protocol="dlna"))["ok"]
@@ -1860,7 +1860,7 @@ def _bak(known_tvs):
 def _mirror_asks(env):
     async def go():
         await env.ctl.start()
-        await env.ctl.devices_select("cast-gogus")
+        await env.ctl.devices_select("cast-salon")
         return (await env.ctl.mirror_start("monitor:DP-4")).get("code")
     return run(go())
 
@@ -1898,8 +1898,8 @@ def test_trust_again_lifts_the_pin_held_by_a_readable_bak(tmp_path, known_tvs):
 
     async def go():
         await env.ctl.start()
-        await env.ctl.devices_select("cast-gogus")
-        assert (await env.ctl.devices_trust_again("cast-gogus"))["removed"] is True
+        await env.ctl.devices_select("cast-salon")
+        assert (await env.ctl.devices_trust_again("cast-salon"))["removed"] is True
         assert not _bak(known_tvs).exists()
         return (await env.ctl.mirror_start("monitor:DP-4")).get("code")
 
@@ -1913,9 +1913,9 @@ def test_trust_again_discards_an_unreadable_bak(tmp_path, known_tvs):
 
     async def go():
         await env.ctl.start()
-        await env.ctl.devices_select("cast-gogus")
+        await env.ctl.devices_select("cast-salon")
         assert (await env.ctl.mirror_start("monitor:DP-4"))["code"] == "cast_unverified"
-        await env.ctl.devices_trust_again("cast-gogus")
+        await env.ctl.devices_trust_again("cast-salon")
         assert not _bak(known_tvs).exists()
         return (await env.ctl.mirror_start("monitor:DP-4")).get("code")
 
@@ -1925,7 +1925,7 @@ def test_trust_again_discards_an_unreadable_bak(tmp_path, known_tvs):
 def test_trust_again_keeps_the_other_pins_in_the_bak(tmp_path, known_tvs):
     import json
 
-    _bak(known_tvs).write_text(json.dumps({"cast-gogus": {"auth": "tofu"}, "cast-syp": {"auth": "tofu"}}))
+    _bak(known_tvs).write_text(json.dumps({"cast-salon": {"auth": "tofu"}, "cast-syp": {"auth": "tofu"}}))
     env = Env(tmp_path)
-    run(env.ctl.devices_trust_again("cast-gogus"))
+    run(env.ctl.devices_trust_again("cast-salon"))
     assert list(json.loads(_bak(known_tvs).read_text())) == ["cast-syp"]
