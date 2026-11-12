@@ -484,9 +484,13 @@ class MediaServer:
         headers["Cache-Control"] = "no-cache"
         npt = parse_npt(request.headers.get("TimeSeekRange.dlna.org", ""))
         if npt is not None:
-            start = npt
+            # The TV counts time from the URL's ?t= offset (build_didl: duration = dur - t), so npt is
+            # relative to it: ffmpeg starts at t + npt, the advertised range is dur - t.
+            t0 = start
+            start = t0 + npt
             dur = pub.plan.duration
-            headers["TimeSeekRange.dlna.org"] = f"npt={fmt_npt(npt)}-" + (f"{fmt_npt(dur)}/{fmt_npt(dur)}" if dur else "*")
+            rest = max(dur - t0, 0.0) if dur else 0.0
+            headers["TimeSeekRange.dlna.org"] = f"npt={fmt_npt(npt)}-" + (f"{fmt_npt(rest)}/{fmt_npt(rest)}" if dur else "*")
         if request.headers.get("Range") and not request.headers.get("Range", "").startswith("bytes=0-"):
             # Can't byte-seek a live transcode.
             return web.Response(status=416, headers=headers)

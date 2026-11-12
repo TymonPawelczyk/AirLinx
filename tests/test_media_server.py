@@ -429,3 +429,43 @@ async def test_server_stop_closes_live_client_iterators():
         await s.stop()
         assert state.get("closed") == 1, state
         r.release()
+
+
+# ----------------------------------------------------------------------------- DLNA time seek vs ?t=
+
+def _capture_stream_args(server, monkeypatch):
+    seen = []
+
+    async def fake_pipe(request, resp, args, pub=None):
+        seen.append(args)
+        await resp.prepare(request)
+
+    monkeypatch.setattr(server, "_pipe_ffmpeg", fake_pipe)
+    return seen
+
+
+def _stream_url(server, blob, start=0.0):
+    item = MediaItem("1", str(blob), "Film", 100.0, "video")
+    p = probe.PlaybackPlan("dlna", "remux", "video/mpeg", "video", duration=100.0, ffmpeg_out=["-f", "mpegts"])
+    return server.publish_plan(item, p, start=start)[0]
+
+
+@pytest.mark.asyncio
+async def test_timeseekrange_is_relative_to_the_url_start_offset(server, blob, monkeypatch):
+    seen = _capture_stream_args(server, monkeypatch)
+    url = _stream_url(server, blob, start=60)
+    assert "t=60" in url
+    async with server.sess.get(url, headers={"TimeSeekRange.dlna.org": "npt=10-"}) as r:
+        assert r.status == 200
+        # TV counts from t (DIDL duration = 100 - 60 = 40 s): total is 40 s, not 100 s
+        assert r.headers["TimeSeekRange.dlna.org"] == "npt=0:00:10.000-0:00:40.000/0:00:40.000"
+    assert seen[0][:2] == ["-ss", "70.000"]
+
+
+@pytest.mark.asyncio
+async def test_timeseekrange_without_url_offset_is_unchanged(server, blob, monkeypatch):
+    seen = _capture_stream_args(server, monkeypatch)
+    url = _stream_url(server, blob)
+    async with server.sess.get(url, headers={"TimeSeekRange.dlna.org": "npt=10-"}) as r:
+        assert r.headers["TimeSeekRange.dlna.org"] == "npt=0:00:10.000-0:01:40.000/0:01:40.000"
+    assert seen[0][:2] == ["-ss", "10.000"]
