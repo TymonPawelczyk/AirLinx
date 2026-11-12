@@ -6,10 +6,14 @@ Usage: .venv/bin/python scripts/smoke_mirror.py --tv TV_IP [--seconds 12] [--mon
                                                 [--codec auto|h264|hevc] [--height 1080]
                                                 [--audio-source system|mic|system_mic|app] [--mic NAME]
                                                 [--app KEY] [--switch-audio SOURCE] [--play]
+                                                [--window XID|TITLE_FRAGMENT]
 The TV address comes from --tv or the AIRLINX_TV_IP environment variable; there is no default.
 Refuses to start when another app runs on the TV (unless --force).
 --audio-source picks what the TV hears (core/audio.py); --switch-audio changes it live at half time;
 --play loops a system sound through paplay (app key "pacat") so system/app modes have a signal.
+--window mirrors one window instead of --monitor (xid as 0x... or decimal, or a unique title fragment;
+`xwininfo -root -tree` / `wmctrl -l` show them). While it runs, close or minimise the window to check that the
+session ends by itself: the script then stops waiting, prints how long it lasted and still sends STOP.
 """
 from __future__ import annotations
 
@@ -29,14 +33,39 @@ from airlinx.core.cast.mirror import MirrorSession  # noqa: E402
 from airlinx.core.sources import list_sources  # noqa: E402
 
 
+TERMINAL_STATES = ("stopped", "error", "idle")
+
+
+def pick_window(sources: list[models.Source], query: str) -> models.Source:
+    """Window source by xid (0x… or decimal) or by a case-insensitive title fragment; SystemExit otherwise."""
+    wins = [s for s in sources if s.kind == "window"]
+    try:
+        xid = int(query, 0)
+    except ValueError:
+        xid = None
+    if xid is not None:
+        hit = [w for w in wins if w.xid == xid]
+    else:
+        hit = [w for w in wins if query.lower() in w.name.lower()]
+    if len(hit) == 1:
+        return hit[0]
+    listing = "\n".join(f"  {w.xid:#x}  {w.name}" for w in (hit or wins)) or "  (no windows)"
+    raise SystemExit(f"--window {query!r}: " + ("ambiguous, candidates:" if hit else "not found, windows:")
+                     + "\n" + listing)
+
+
 async def main(a: argparse.Namespace) -> int:
     running = await castv2.get_running_app(a.tv)
     print(f"TV running app: {running.get('displayName') if running else None}")
     if running and not a.force:
         print("TV busy — not starting (use --force).")
         return 3
-    srcs = [s for s in await list_sources(with_thumbnails=False) if s.kind == "monitor"]
-    src = next((s for s in srcs if a.monitor in s.id), srcs[0])
+    all_srcs = await list_sources(with_thumbnails=False)
+    if a.window:
+        src = pick_window(all_srcs, a.window)
+    else:
+        srcs = [s for s in all_srcs if s.kind == "monitor"]
+        src = next((s for s in srcs if a.monitor in s.id), srcs[0])
     print(f"source: {src.name} {src.geometry}")
     dev = models.Device(id=a.tv, name="TV", model="", ip=a.tv, cast_port=8009, caps={"cast_mirror"})
 
@@ -55,9 +84,20 @@ async def main(a: argparse.Namespace) -> int:
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         await asyncio.sleep(0.5)
     t0 = time.monotonic()
+    ended = asyncio.Event()      # the session ended on its own (window closed / minimised, TV left, error)
+    started = False
 
     def on_state(state: str, detail: str | None) -> None:
         print(f"[{time.monotonic() - t0:6.2f}s] STATE {state} {detail or ''}")
+        if started and state in TERMINAL_STATES:
+            ended.set()
+
+    async def wait(seconds: float) -> None:
+        try:
+            await asyncio.wait_for(ended.wait(), seconds)
+            print(f"[{time.monotonic() - t0:6.2f}s] SESSION ENDED BY ITSELF before the {seconds:.0f}s wait was over")
+        except asyncio.TimeoutError:
+            pass
 
     def on_stats(st: models.Stats) -> None:
         print(f"[{time.monotonic() - t0:6.2f}s] STATS {st.width}x{st.height} fps={st.fps:.1f} "
@@ -68,23 +108,26 @@ async def main(a: argparse.Namespace) -> int:
     s = MirrorSession(dev, src, opts, on_stats, on_state)
     try:
         await s.start(force=a.force)
+        started = True
+        if a.window:
+            print(f"window {src.xid:#x} is shared: close or minimise it now to see the session end")
         if a.switch_audio:
-            await asyncio.sleep(a.seconds / 2)
+            await wait(a.seconds / 2)
             m = s._media  # noqa: SLF001
             if m is not None and m.audio:
                 print("AUDIO before switch", {k: m.audio.snapshot()[k] for k in ("frames", "acked")})
             print(f"update: audio source -> {a.switch_audio} (audio capture restart only)")
             await s.update(models.MirrorOptions(audio=not a.no_audio, fps=a.fps, bitrate=a.bitrate,
                                                 max_height=a.height, codec=a.codec, **audio_opts(a.switch_audio)))
-            await asyncio.sleep(a.seconds / 2)
+            await wait(a.seconds / 2)
         elif a.update:
-            await asyncio.sleep(a.seconds / 2)
+            await wait(a.seconds / 2)
             print("update: bitrate -> 8 Mb/s (encoder restart)")
             await s.update(models.MirrorOptions(audio=not a.no_audio, fps=a.fps, bitrate=8_000_000,
                                                 max_height=a.height, codec=a.codec))
-            await asyncio.sleep(a.seconds / 2)
+            await wait(a.seconds / 2)
         else:
-            await asyncio.sleep(a.seconds)
+            await wait(a.seconds)
         m = s._media  # noqa: SLF001 (diagnostics only)
         if m is not None:
             v = m.video.snapshot()
@@ -103,7 +146,7 @@ async def main(a: argparse.Namespace) -> int:
     return 0
 
 
-if __name__ == "__main__":
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tv", default=os.environ.get("AIRLINX_TV_IP"), help="TV address (or set AIRLINX_TV_IP)")
     ap.add_argument("--seconds", type=float, default=12)
@@ -121,10 +164,16 @@ if __name__ == "__main__":
     ap.add_argument("--app", default=None, help="app key for --audio-source app (e.g. firefox, pacat)")
     ap.add_argument("--switch-audio", default=None, choices=("system", "mic", "system_mic", "app"))
     ap.add_argument("--play", action="store_true", help="loop a sound with paplay during the run")
+    ap.add_argument("--window", default=None, help="share a window instead of a monitor: xid or title fragment")
     ap.add_argument("-v", action="store_true")
-    args = ap.parse_args()
+    return ap
+
+
+if __name__ == "__main__":
+    parser = build_parser()
+    args = parser.parse_args()
     if not args.tv:
-        ap.error("pass --tv TV_IP or set AIRLINX_TV_IP")
+        parser.error("pass --tv TV_IP or set AIRLINX_TV_IP")
     logging.basicConfig(level=logging.DEBUG if args.v else logging.INFO,
                         format="%(asctime)s %(name)s %(levelname)s %(message)s")
     sys.exit(asyncio.run(main(args)))
