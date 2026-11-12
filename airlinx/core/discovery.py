@@ -115,6 +115,20 @@ def parse_cast_txt(props: dict) -> dict:
     return {"id": g("id"), "name": g("fn"), "model": g("md"), "ca": g("ca"), "st": g("st")}
 
 
+def usable_host(addr) -> bool:
+    """A real unicast host address: not loopback, link-local, multicast, unspecified or reserved."""
+    return not (addr.is_loopback or addr.is_link_local or addr.is_multicast or addr.is_unspecified
+                or addr.is_reserved)
+
+
+def usable_ipv4(text: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return addr.version == 4 and usable_host(addr)
+
+
 def valid_location(location: str, sender_ip: str) -> bool:
     """Accept an SSDP LOCATION only if it points back at the datagram's sender over http(s),
     and that address is a real unicast LAN/WAN host (no loopback / link-local / multicast)."""
@@ -129,8 +143,7 @@ def valid_location(location: str, sender_ip: str) -> bool:
         return False
     if host != sender:
         return False
-    return not (host.is_loopback or host.is_link_local or host.is_multicast or host.is_unspecified
-                or host.is_reserved)
+    return usable_host(host)
 
 
 def normalize_udn(udn: str) -> str:
@@ -273,8 +286,10 @@ class Discovery:
         if not await info.async_request(self._azc.zeroconf, 3000):
             log.debug("could not resolve %s", name)
             return
-        addrs = [a for a in info.parsed_addresses() if ":" not in a]
+        # mDNS replies are unauthenticated: same address filters as for an SSDP LOCATION
+        addrs = [a for a in info.parsed_addresses() if usable_ipv4(a)]
         if not addrs:
+            log.debug("ignoring %s: no usable address in %s", name, info.parsed_addresses())
             return
         txt = parse_cast_txt(info.properties or {})
         self.upsert_cast(addrs[0], info.port or 8009, txt, zc_name=name)
@@ -283,7 +298,7 @@ class Discovery:
         for e in self._entries.values():
             if name in e.zc_names:
                 e.zc_names.discard(name)
-                e.cast_alive = False
+                e.cast_alive = bool(e.zc_names)     # another announced service may still be alive
                 self._update_online(e)
         self._notify()
 
@@ -297,6 +312,11 @@ class Discovery:
 
     def upsert_cast(self, ip: str, port: int, txt: dict, zc_name: Optional[str] = None) -> Device:
         e = self._entry(ip)
+        if zc_name and e.cast_alive and e.zc_names and zc_name not in e.zc_names:
+            # Another, still live service already owns this address: an unauthenticated announcement must not
+            # rewrite its port/id/name (nor, by going away, take it offline).
+            log.debug("ignoring %s: %s is already served by %s", zc_name, ip, sorted(e.zc_names))
+            return e.device
         d = e.device
         if txt.get("id"):
             d.id = txt["id"].replace("-", "").lower()

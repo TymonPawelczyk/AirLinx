@@ -410,3 +410,66 @@ async def test_ssdp_unresponsive_first_host_does_not_block_the_others(monkeypatc
     d._fetch_description = fetch
     await d._ssdp_scan(timeout=0.7)
     assert [x.ip for x in d.devices] == ["192.168.1.22"]
+
+
+# ------------------------------------------------------------------ hardening: mDNS announcements are untrusted
+
+class _FakeInfo:
+    def __init__(self, addrs, port, props=None):
+        self._addrs, self.port, self.properties = addrs, port, props or CAST_TXT
+
+    async def async_request(self, zc, timeout):
+        return True
+
+    def parsed_addresses(self):
+        return self._addrs
+
+
+def _patch_info(monkeypatch, info):
+    import zeroconf.asyncio as zca
+
+    monkeypatch.setattr(zca, "AsyncServiceInfo", lambda *a, **k: info)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad", ["127.0.0.1", "169.254.10.10", "224.0.0.251", "0.0.0.0", "240.0.0.1"])
+async def test_resolve_cast_rejects_unusable_addresses(monkeypatch, bad):
+    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
+    d._azc = type("Z", (), {"zeroconf": None})()
+    _patch_info(monkeypatch, _FakeInfo([bad], 8009))
+    await d._resolve_cast("_googlecast._tcp.local.", "Fake._googlecast._tcp.local.")
+    assert d.devices == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_cast_skips_bad_addresses_and_uses_the_first_usable(monkeypatch):
+    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
+    d._azc = type("Z", (), {"zeroconf": None})()
+    _patch_info(monkeypatch, _FakeInfo(["127.0.0.1", "169.254.1.1", "192.168.1.10"], 8009))
+    await d._resolve_cast("_googlecast._tcp.local.", "Real._googlecast._tcp.local.")
+    assert [x.ip for x in d.devices] == ["192.168.1.10"]
+
+
+def test_foreign_announcement_cannot_overwrite_a_live_service():
+    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
+    real = disc.parse_cast_txt(CAST_TXT)
+    d.upsert_cast("192.168.1.10", 8009, real, zc_name="Real._googlecast._tcp.local.")
+    d.upsert_cast("192.168.1.10", 9, {"id": "deadbeef", "name": "Pwned", "model": "x"},
+                  zc_name="Evil._googlecast._tcp.local.")
+    dev = d.devices[0]
+    assert dev.cast_port == 8009 and dev.id == "8f2a1b3c4d5e6f708192a3b4c5d6e7f8" and dev.name == "Goguś"
+    assert d._entries["192.168.1.10"].zc_names == {"Real._googlecast._tcp.local."}
+    # the evil service going away must not take the real one offline
+    d._cast_removed("Evil._googlecast._tcp.local.")
+    assert dev.online
+
+
+def test_same_service_may_update_its_own_entry_and_a_dead_one_may_be_replaced():
+    d = disc.Discovery(lambda devs: None, interface_ip="192.168.1.16")
+    ip, name = "192.168.1.10", "Real._googlecast._tcp.local."
+    d.upsert_cast(ip, 8009, {"id": "aa", "name": "A", "model": "m"}, zc_name=name)
+    d.upsert_cast(ip, 8010, {"id": "aa", "name": "A2", "model": "m"}, zc_name=name)   # same service: update
+    assert d.devices[0].cast_port == 8010 and d.devices[0].name == "A2"
+    d._cast_removed(name)                                                              # service gone
+    d.upsert_cast(ip, 8009, {"id": "bb", "name": "B", "model": "m"}, zc_name="New._googlecast._tcp.local.")
+    assert d.devices[0].id == "bb" and d.devices[0].cast_port == 8009 and d.devices[0].online
