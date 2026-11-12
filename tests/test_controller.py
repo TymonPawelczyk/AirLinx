@@ -1850,3 +1850,82 @@ def test_consent_is_not_recorded_when_the_setting_is_not_auto(tmp_path, known_tv
         assert env.ctl._media_dlna_consent is None
 
     run(go())
+
+
+# ----------------------------------------------------------------------------- a moved-aside pin file still pins
+def _bak(known_tvs):
+    return known_tvs.with_name(known_tvs.name + ".bak")
+
+
+def _mirror_asks(env):
+    async def go():
+        await env.ctl.start()
+        await env.ctl.devices_select("cast-gogus")
+        return (await env.ctl.mirror_start("monitor:DP-4")).get("code")
+    return run(go())
+
+
+def test_corrupt_pin_file_moved_to_bak_by_a_pin_write_still_asks_before_dlna(tmp_path, known_tvs):
+    from airlinx.core.cast import castv2
+
+    known_tvs.write_text("{broken")
+    assert castv2.forget_tv_cert("unrelated") is False        # any pin read/write path moves it aside
+    assert _bak(known_tvs).exists() and not known_tvs.exists()
+    env = Env(tmp_path)
+    env.modes["cast"] = "refused"
+    assert _mirror_asks(env) == "cast_unverified"
+    assert [s.proto for s in FakeSession.instances] == ["cast"]
+
+
+def test_readable_bak_with_the_tv_still_pins_it(tmp_path, known_tvs):
+    _pin(_bak(known_tvs))
+    env = Env(tmp_path)
+    env.modes["cast"] = "refused"
+    assert _mirror_asks(env) == "cast_unverified"
+
+
+def test_readable_bak_without_the_tv_does_not_pin_it(tmp_path, known_tvs):
+    _pin(_bak(known_tvs), "someone-else")
+    env = Env(tmp_path)
+    env.modes["cast"] = "refused"
+    assert _mirror_asks(env) is None                           # unpinned: falls back to DLNA as before
+
+
+def test_trust_again_lifts_the_pin_held_by_a_readable_bak(tmp_path, known_tvs):
+    _pin(_bak(known_tvs))
+    env = Env(tmp_path)
+    env.modes["cast"] = "refused"
+
+    async def go():
+        await env.ctl.start()
+        await env.ctl.devices_select("cast-gogus")
+        assert (await env.ctl.devices_trust_again("cast-gogus"))["removed"] is True
+        assert not _bak(known_tvs).exists()
+        return (await env.ctl.mirror_start("monitor:DP-4")).get("code")
+
+    assert run(go()) is None
+
+
+def test_trust_again_discards_an_unreadable_bak(tmp_path, known_tvs):
+    _bak(known_tvs).write_text("{broken")
+    env = Env(tmp_path)
+    env.modes["cast"] = "refused"
+
+    async def go():
+        await env.ctl.start()
+        await env.ctl.devices_select("cast-gogus")
+        assert (await env.ctl.mirror_start("monitor:DP-4"))["code"] == "cast_unverified"
+        await env.ctl.devices_trust_again("cast-gogus")
+        assert not _bak(known_tvs).exists()
+        return (await env.ctl.mirror_start("monitor:DP-4")).get("code")
+
+    assert run(go()) is None
+
+
+def test_trust_again_keeps_the_other_pins_in_the_bak(tmp_path, known_tvs):
+    import json
+
+    _bak(known_tvs).write_text(json.dumps({"cast-gogus": {"auth": "tofu"}, "cast-syp": {"auth": "tofu"}}))
+    env = Env(tmp_path)
+    run(env.ctl.devices_trust_again("cast-gogus"))
+    assert list(json.loads(_bak(known_tvs).read_text())) == ["cast-syp"]

@@ -828,9 +828,9 @@ class Controller:
         """The TV's Cast identity is pinned (known_tvs.json, keys as in devices.trustAgain): DLNA has no
         verification at all, so a failing Cast must not silently downgrade to DLNA on the same host."""
         try:  # fail closed: an unreadable pin store must not switch the protection off
-            from .core.cast.castv2 import known_tvs_path, load_pins_strict
+            from .core.cast.castv2 import known_tvs_path, load_pins_guarded
 
-            pins = load_pins_strict(known_tvs_path())
+            pins = load_pins_guarded(known_tvs_path())
         except (ImportError, OSError, ValueError) as e:
             log.warning("cannot check pinned Cast identities (%s); treating %s as pinned", e, dev.ip)
             return True
