@@ -424,9 +424,12 @@ class MediaServer:
         h["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Accept-Ranges"
         return resp
 
-    @staticmethod
-    def _peer_allowed(request: web.Request, allowed_ip: Optional[str]) -> bool:
-        return allowed_ip is None or _norm_ip(request.remote) == allowed_ip
+    def _peer_allowed(self, request: web.Request, allowed_ip: Optional[str]) -> bool:
+        if allowed_ip is None:
+            return True
+        peer = _norm_ip(request.remote)
+        # a receiver on this machine (virtual TV) reaches our LAN address from that same address
+        return peer == allowed_ip or (allowed_ip.startswith("127.") and peer in ("127.0.0.1", self.lan_ip))
 
     def _get(self, request: web.Request) -> Published:
         pub = self.items.get(request.match_info["token"])
