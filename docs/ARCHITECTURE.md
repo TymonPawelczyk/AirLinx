@@ -109,6 +109,7 @@ class MediaServer:
     def publish(self, item: MediaItem, target: Literal["cast","dlna"]) -> tuple[str, str]  # (url, mime); decyzja z probe.py
     async def stop(self) -> None
 ```
+URL-e (`publish`/`register_live`) działają tylko dla odbiornika, dla którego opublikowano (IP peera == `target_ip`; wyłączane `AIRLINX_MEDIA_IP_BIND=0`) i do `unpublish`/`unregister_live` lub bezczynności dłuższej niż `TOKEN_IDLE_TTL` (6 h, przesuwany). Zły `Range` → 416, zły `?t=` → 400.
 Błędy: `core/models.py` definiuje `AirlinxError(code, message_pl)`, `TvBusyError`, `TvNotFoundError`, `PermissionPendingError`.
 
 ## Bridge JS ⇄ Python (`bridge.py`, kontrakt dla ui)

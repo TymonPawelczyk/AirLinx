@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import secrets
 from datetime import timedelta
 from typing import Any, Callable, Optional
 from xml.sax.saxutils import escape, quoteattr
@@ -285,15 +286,19 @@ class DlnaMirror:
         self.device, self.server, self.source, self.title = device, server, source, title
         self.player = player or DlnaPlayer(device, on_state)
         self.url: Optional[str] = None
+        # Unique per session: a delayed stop() of an old session must not unregister the new one's live.
+        self.name = f"{self.NAME}-{secrets.token_hex(4)}"
 
     async def start(self, force: bool = False) -> str:
-        self.url = self.server.register_live(self.NAME, self.source, target_ip=self.device.ip)
+        self.url = self.server.register_live(self.name, self.source, target_ip=self.device.ip)
         item = MediaItem(id="mirror", path_or_url=self.url, title=self.title, duration=None, kind="video")
         await self.player.load(item, self.url, "video/mpeg", force=force)
         return self.url
 
     async def stop(self) -> None:
+        # Unregister first: SOAP Stop can take seconds and a TV re-GET in that window would
+        # otherwise start a new capture that nothing ends.
+        self.server.unregister_live(self.name)
         with contextlib.suppress(Exception):
             await self.player.stop()
         await self.player.close()
-        self.server.unregister_live(self.NAME)
